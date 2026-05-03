@@ -1,6 +1,8 @@
 import streamlit as st
-import requests
 import json
+import asyncio
+from app.main import ask_hr
+from app.routes import QueryRequest
 
 # Configuración de la página
 st.set_page_config(
@@ -12,9 +14,6 @@ st.set_page_config(
 # Título y estilo
 st.title("🤖 Asistente de RRHH (RAG + Evaluation)")
 st.markdown("---")
-
-# URL del API de FastAPI
-API_URL = "http://127.0.0.1:8000/ask"
 
 # Estado de la sesión para el historial de chat
 if "messages" not in st.session_state:
@@ -61,35 +60,35 @@ if prompt := st.chat_input("¿En qué puedo ayudarte hoy?"):
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Llamada al API
+    # Llamada Directa a la Lógica (Sin necesidad de servidor FastAPI externo)
     with st.chat_message("assistant"):
         with st.spinner("Consultando base de conocimientos..."):
             try:
-                # Enviamos la pregunta y el historial para el "Mini-cerebro"
-                payload = {
-                    "query": prompt,
-                    "history": st.session_state.messages[:-1] # Excluimos el último mensaje que acabamos de agregar
+                # Preparamos el request
+                request_data = QueryRequest(
+                    query=prompt,
+                    history=st.session_state.messages[:-1]
+                )
+                
+                # Ejecutamos la lógica (ask_hr es asíncrona)
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                data = loop.run_until_complete(ask_hr(request_data))
+                
+                # Mostrar respuesta
+                st.markdown(data.answer)
+                
+                # Guardar evaluación para el sidebar
+                st.session_state.last_eval = {
+                    "is_grounded": data.is_grounded,
+                    "grading": data.grading.dict(),
+                    "sources": data.sources
                 }
-                response = requests.post(API_URL, json=payload)
-                if response.status_code == 200:
-                    data = response.json()
-                    
-                    # Mostrar respuesta
-                    st.markdown(data["answer"])
-                    
-                    # Guardar evaluación para el sidebar
-                    st.session_state.last_eval = {
-                        "is_grounded": data["is_grounded"],
-                        "grading": data["grading"],
-                        "sources": data["sources"]
-                    }
-                    
-                    # Agregar a historial
-                    st.session_state.messages.append({"role": "assistant", "content": data["answer"]})
-                    
-                    # Forzar recarga del sidebar
-                    st.rerun()
-                else:
-                    st.error(f"Error del servidor: {response.text}")
+                
+                # Agregar a historial
+                st.session_state.messages.append({"role": "assistant", "content": data.answer})
+                
+                # Forzar recarga del sidebar
+                st.rerun()
             except Exception as e:
-                st.error(f"No se pudo conectar con el API: {e}")
+                st.error(f"Error procesando la consulta: {e}")
