@@ -1,8 +1,15 @@
 import streamlit as st
 import json
 import asyncio
-from app.main import ask_hr
-from app.routes import QueryRequest
+import sys
+import os
+
+# Asegurar que el directorio raíz y el directorio 'app' estén en el path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+
+from main import ask_hr
+from routes import QueryRequest
 
 # Configuración de la página
 st.set_page_config(

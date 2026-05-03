@@ -1,5 +1,9 @@
 from fastapi import FastAPI, HTTPException
-from app.routes import QueryRequest, QueryResponse, Grading
+try:
+    from app.routes import QueryRequest, QueryResponse, Grading
+except ImportError:
+    from routes import QueryRequest, QueryResponse, Grading
+
 from core.embeddings import EmbeddingManager
 from core.llm import LLMManager
 from core.guardrails import GuardrailManager
