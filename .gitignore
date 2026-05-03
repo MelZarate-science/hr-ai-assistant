@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env
+
+# Database/Vector store
+*.local
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+data/processed/
+*.log

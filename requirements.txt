@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+streamlit
+psycopg2-binary
+pgvector
+sentence-transformers
+google-generativeai
+pydantic
+pydantic-settings
+python-dotenv
+requests
+numpy
+langchain-text-splitters
