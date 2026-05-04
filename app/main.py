@@ -82,7 +82,9 @@ async def ask_hr(request: QueryRequest):
             )
         
         # 3. Generation - Ahora le pasamos la historia para que sea consistente
-        answer = llm.generate_answer(rewritten_query, context, request.history)
+        # Usamos request.query (la original) para que el LLM entienda el tono y contexto conversacional,
+        # mientras que el context ya fue recuperado usando la rewritten_query.
+        answer = llm.generate_answer(request.query, context, request.history)
         
         # 4. Evaluation (Opcional)
         is_grounded = True

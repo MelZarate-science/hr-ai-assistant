@@ -80,16 +80,19 @@ class LLMManager:
         """Lógica específica para el asistente de RRHH con conciencia de contexto conversacional."""
         prompt_path = Path(settings.BASE_DIR) / "prompts" / "system_prompt.txt"
         with open(prompt_path, "r", encoding="utf-8") as f:
-            system_instructions = f.read()
+            template = f.read()
             
-        # Formatear la historia de forma ligera (solo los últimos 3 mensajes)
-        history_context = ""
+        # Formatear la historia para el prompt
+        history_text = "Sin historial previo."
         if history:
-            history_context = "\n--- HISTORIAL RECIENTE ---\n"
-            for msg in history[-3:]:
+            history_text = ""
+            for msg in history[-5:]: # Aumentamos un poco el contexto histórico
                 role = "Empleado" if msg["role"] == "user" else "Asistente"
-                history_context += f"{role}: {msg['content']}\n"
-            history_context += "---------------------------\n"
+                history_text += f"{role}: {msg['content']}\n"
             
-        final_prompt = f"{system_instructions}\n{history_context}\nCONTEXTO DE DOCUMENTOS:\n{context}\n\nPREGUNTA DEL EMPLEADO: {query}"
+        final_prompt = template.format(
+            history=history_text,
+            context=context,
+            query=query
+        )
         return self.call(final_prompt, temperature=0.1)

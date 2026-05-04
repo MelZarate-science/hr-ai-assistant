@@ -11,14 +11,42 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from config.settings import settings
 
 def extract_text_from_pdf(pdf_path):
-    """Extrae el texto de un archivo PDF."""
+    """Extrae el texto de un archivo PDF e intenta aplicar un formato Markdown básico."""
     reader = PdfReader(pdf_path)
     text = ""
     for page in reader.pages:
-        # Limpieza básica de texto
         page_text = page.extract_text()
-        if page_text:
-            text += page_text + "\n"
+        if not page_text:
+            continue
+            
+        lines = page_text.split('\n')
+        formatted_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Detectar títulos (Líneas cortas en mayúsculas o que empiezan con números/secciones)
+            if (line.isupper() and len(line) < 60) or any(line.startswith(s) for s in ["1.", "2.", "3.", "PROGRAMA", "POLÍTICA"]):
+                formatted_lines.append(f"\n### {line}\n")
+            # Detectar listas
+            elif line.startswith("-") or line.startswith("•"):
+                formatted_lines.append(f"* {line[1:].strip()}")
+            # Detectar campos clave (Responsable, Interno, etc.)
+            elif any(k in line for k in ["Responsable:", "Interno:", "Ubicación:", "Frecuencia:", "Requisitos:"]):
+                # Poner la etiqueta en negrita
+                parts = line.split(":", 1)
+                formatted_lines.append(f"**{parts[0]}:** {parts[1].strip() if len(parts)>1 else ''}")
+            else:
+                formatted_lines.append(line)
+        
+        text += "\n".join(formatted_lines) + "\n"
+    
+    # Limpieza de saltos de línea duplicados
+    while "\n\n\n" in text:
+        text = text.replace("\n\n\n", "\n\n")
+        
     return text
 
 def chunk_text(text):
