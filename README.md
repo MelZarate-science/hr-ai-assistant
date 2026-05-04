@@ -2,6 +2,8 @@
 
 Este es un asistente de Recursos Humanos de nivel profesional que utiliza una arquitectura **RAG (Retrieval-Augmented Generation)** para responder dudas sobre políticas internas, beneficios y programas corporativos basándose exclusivamente en documentación oficial.
 
+Web: https://melzarate-science-hr-ai-assistant-appui-cmkixp.streamlit.app/
+
 ## 🚀 Características Principales
 
 - **Arquitectura RAG Avanzada:** Recuperación de documentos desde una base de datos vectorial (**Neon + pgvector**).
