@@ -1,38 +1,24 @@
-import google.generativeai as genai
 from groq import Groq
 from config.settings import settings
 from pathlib import Path
 
 class LLMManager:
     def __init__(self):
-        """Inicializa el motor de IA (Gemini o Groq) según la configuración."""
-        self.engine = settings.LLM_ENGINE.lower()
-        
-        if self.engine == "gemini":
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            self.model = genai.GenerativeModel(settings.GEMINI_MODEL)
-        else:
-            self.client = Groq(api_key=settings.GROQ_API_KEY)
-            self.model_name = settings.GROQ_MODEL
+        """Inicializa el motor de IA (Groq) según la configuración."""
+        self.client = Groq(api_key=settings.GROQ_API_KEY)
+        self.model_name = settings.GROQ_MODEL
 
     def call(self, prompt: str, temperature: float = 0.1, model_name: str = None):
         """Hace una llamada directa al LLM con un prompt completo."""
         try:
-            if self.engine == "gemini":
-                response = self.model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(temperature=temperature)
-                )
-                return response.text
-            else:
-                chat_completion = self.client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model=model_name or self.model_name,
-                    temperature=temperature,
-                )
-                return chat_completion.choices[0].message.content
+            chat_completion = self.client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=model_name or self.model_name,
+                temperature=temperature,
+            )
+            return chat_completion.choices[0].message.content
         except Exception as e:
-            print(f"❌ Error llamando a {self.engine.upper()}: {e}")
+            print(f"❌ Error llamando a GROQ: {e}")
             return "ERROR"
 
     def rewrite_query(self, query: str, history: list) -> str:

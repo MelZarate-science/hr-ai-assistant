@@ -45,22 +45,38 @@ with st.sidebar:
     
     st.markdown("---")
     st.header("📊 Panel de Auditoría")
-    st.info("Aquí verás los resultados de la evaluación en tiempo real.")
     
     # Espacio para mostrar la última evaluación
     if "last_eval" in st.session_state:
         eval_data = st.session_state.last_eval
+        answer_text = st.session_state.messages[-1]["content"] if st.session_state.messages else ""
         
-        # Groundedness con color
-        if eval_data["is_grounded"]:
-            st.success("✅ Veracidad (Groundedness): PASS")
+        # 1. Indicador de Estado Dinámico
+        if "No encontré información suficiente" in answer_text:
+            st.warning("⚠️ Estado: No se encontró información suficiente")
+        elif eval_data.get("is_repaired", False):
+            st.info("🔧 Estado: Respuesta ajustada para asegurar precisión")
+        elif eval_data["is_grounded"]:
+            st.success("✅ Estado: Respuesta verificada")
         else:
-            st.error("❌ Veracidad (Groundedness): FAIL")
+            st.error("❌ Estado: Alucinación detectada")
+
+        # 2. Visualización de Groundedness Score
+        score = eval_data.get("groundedness_score", 0.0)
+        st.write(f"**Groundedness:** {score:.2f} ({score*100:.0f}% soportado por documentos)")
+        st.progress(score)
             
+        st.markdown("---")
         st.write("**Puntajes de Calidad (LLM-as-a-Judge):**")
-        st.progress(eval_data["grading"]["relevance"] / 5, text=f"Relevancia: {eval_data['grading']['relevance']}")
-        st.progress(eval_data["grading"]["clarity"] / 5, text=f"Claridad: {eval_data['grading']['clarity']}")
-        st.progress(eval_data["grading"]["usefulness"] / 5, text=f"Utilidad: {eval_data['grading']['usefulness']}")
+        
+        # 3. Métricas Detalladas
+        cols = st.columns(3)
+        with cols[0]:
+            st.metric("Relevancia", f"{eval_data['grading']['relevance']}/5")
+        with cols[1]:
+            st.metric("Claridad", f"{eval_data['grading']['clarity']}/5")
+        with cols[2]:
+            st.metric("Utilidad", f"{eval_data['grading']['usefulness']}/5")
         
         st.metric("Puntaje Total", f"{eval_data['grading']['total_score']}/5.0")
         
@@ -69,7 +85,7 @@ with st.sidebar:
             for src in eval_data["sources"]:
                 st.caption(f"📄 {src}")
     else:
-        st.write("Esperando consulta...")
+        st.info("Esperando consulta para realizar auditoría en tiempo real.")
 
     st.markdown("---")
     if st.button("🗑️ Limpiar Historial"):
@@ -140,6 +156,8 @@ if selected_suggestion or prompt:
                 # Guardar evaluación para el sidebar
                 st.session_state.last_eval = {
                     "is_grounded": data.is_grounded,
+                    "groundedness_score": data.groundedness_score,
+                    "is_repaired": data.is_repaired,
                     "grading": data.grading.dict(),
                     "sources": data.sources
                 }

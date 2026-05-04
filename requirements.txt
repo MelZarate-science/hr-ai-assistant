@@ -6,7 +6,6 @@ streamlit
 psycopg2-binary
 pgvector
 sentence-transformers
-google-generativeai
 pydantic
 python-dotenv
 requests

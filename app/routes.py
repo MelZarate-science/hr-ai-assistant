@@ -15,5 +15,7 @@ class QueryResponse(BaseModel):
     answer: str
     sources: List[str]
     is_grounded: bool
+    groundedness_score: float = 0.0
+    is_repaired: bool = False
     grading: Grading
     error: Optional[str] = None

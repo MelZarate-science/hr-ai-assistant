@@ -9,20 +9,17 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     # AI Models
-    GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
     
-    # Elección de motor: "gemini" o "groq"
+    # Motor fijo a Groq según requerimiento del proyecto
     LLM_ENGINE: str = "groq" 
     
-    GEMINI_MODEL: str = "models/gemini-flash-latest"
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
     
     # Modelo pequeño (SLM) para tareas rápidas como reescritura de consultas
-    # Usamos Llama 3.1 8B por su velocidad y bajo consumo de tokens
     SLM_MODEL: str = "llama-3.1-8b-instant"
     
-    EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
+    EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
     # Toggles para ahorrar cuota
     ENABLE_GUARDRAILS: bool = True
