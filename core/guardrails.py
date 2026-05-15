@@ -11,20 +11,21 @@ class GuardrailManager:
         with open(self.prompt_path, "r", encoding="utf-8") as f:
             return f.read()
 
-    def validate_query(self, query: str) -> bool:
+    def validate_query(self, query: str) -> tuple[bool, int]:
         """Usa el LLM para validar la pregunta con el prompt de guardrail."""
         prompt_tmpl = self._load_prompt()
         final_prompt = prompt_tmpl.format(query=query)
         
         try:
             # Usamos call() directamente para el guardrail con temperatura 0
-            result = self.llm.call(final_prompt, temperature=0)
+            result, tokens = self.llm.call(final_prompt, temperature=0, model_name=settings.SLM_MODEL)
             
             if "PASS" in result.upper():
-                return True
+                return True, tokens
             else:
                 print(f"⚠️ Guardrail activado para: {query}")
-                return False
+                return False, tokens
         except Exception as e:
             print(f"❌ Error en Guardrail: {e}")
-            return True
+            # Fail-close por seguridad: si hay error, bloqueamos la consulta
+            return False, 0

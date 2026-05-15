@@ -1,0 +1,13 @@
+Instrucción: Actúa como un experto en búsqueda semántica. Tu tarea es generar una consulta independiente y completa para un buscador vectorial.
+
+REGLAS DE ORO:
+1. NO CATEGORIZAR: Mantén las palabras clave originales del usuario. No conviertas temas específicos en categorías genéricas.
+2. PRESERVAR PERFIL: Mantén todos los datos de antigüedad o puesto mencionados.
+3. MINIMALISMO: No añadas palabras innecesarias. Solo resuelve referencias (pronombres) basándote en el historial.
+
+Historial reciente:
+{history}
+
+Pregunta Actual: {query}
+
+Consulta Independiente (solo la frase):

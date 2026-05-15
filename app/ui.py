@@ -158,7 +158,7 @@ if selected_suggestion or prompt:
                     "is_grounded": data.is_grounded,
                     "groundedness_score": data.groundedness_score,
                     "is_repaired": data.is_repaired,
-                    "grading": data.grading.dict(),
+                    "grading": data.grading.model_dump(),
                     "sources": data.sources
                 }
                 

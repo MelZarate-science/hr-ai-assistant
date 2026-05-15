@@ -14,12 +14,14 @@ class EmbeddingManager:
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
         Convierte una lista de textos en una lista de vectores (embeddings).
-        Cada vector tendrá una dimensión de 384 (para el modelo MiniLM).
+        Aplica normalización L2 para permitir búsquedas eficientes por Producto Punto.
         """
         try:
             embeddings = self.model.encode(texts)
-            # Convertimos de numpy array a lista de Python para que sea compatible con pgvector
-            return embeddings.tolist()
+            # Normalización L2: cada vector tendrá longitud 1
+            norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+            normalized_embeddings = embeddings / norms
+            return normalized_embeddings.tolist()
         except Exception as e:
             print(f"❌ Error generando embeddings: {e}")
             return []

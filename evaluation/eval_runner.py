@@ -12,36 +12,45 @@ class EvalRunner:
         with open(self.prompts_dir / filename, "r", encoding="utf-8") as f:
             return f.read()
 
-    def check_groundedness(self, answer, context) -> dict:
-        """Verifica veracidad usando el prompt de auditoría y devuelve score y status."""
+    def check_groundedness(self, answer, context) -> tuple[dict, int]:
         prompt_tmpl = self._load_prompt("groundedness_prompt.txt")
-        final_prompt = prompt_tmpl.format(context=context, answer=answer)
-        
+        # Escapamos comillas dobles para no romper el prompt que usa "{context}" y "{answer}"
+        safe_context = context.replace('"', "'")
+        safe_answer = answer.replace('"', "'")
+        final_prompt = prompt_tmpl.format(context=safe_context, answer=safe_answer)
+        res, tokens = self.llm.call(final_prompt, temperature=0)
         try:
-            res = self.llm.call(final_prompt, temperature=0)
-            # Limpiar posibles bloques de código Markdown
-            clean_json = res.replace("```json", "").replace("```", "").strip()
-            data = json.loads(clean_json)
+            # Extraer JSON de posibles bloques de código
+            if "```json" in res:
+                res = res.split("```json")[1].split("```")[0]
+            elif "```" in res:
+                res = res.split("```")[1].split("```")[0]
             
-            # Asegurar estructura esperada
+            clean_json = res.strip()
+            data = json.loads(clean_json)
             return {
                 "groundedness_score": float(data.get("groundedness_score", 0.0)),
                 "status": str(data.get("status", "FAIL")).upper(),
                 "reasoning": data.get("reasoning", "")
-            }
+            }, tokens
         except Exception as e:
-            print(f"❌ Error en Groundedness: {e}")
-            return {"groundedness_score": 0.0, "status": "FAIL", "reasoning": str(e)}
+            print(f"❌ Error parsing Groundedness JSON: {e} | Res: {res[:100]}...")
+            return {"groundedness_score": 0.0, "status": "FAIL", "reasoning": f"JSON Error: {str(e)}"}, tokens
 
-    def get_grading(self, query, answer) -> dict:
-        """Califica la calidad usando el prompt de grading."""
+    def get_grading(self, query, answer) -> tuple[dict, int]:
         prompt_tmpl = self._load_prompt("grading_prompt.txt")
-        final_prompt = prompt_tmpl.format(query=query, answer=answer)
-        
+        safe_query = query.replace('"', "'")
+        safe_answer = answer.replace('"', "'")
+        final_prompt = prompt_tmpl.format(query=safe_query, answer=safe_answer)
+        res, tokens = self.llm.call(final_prompt, temperature=0)
         try:
-            res = self.llm.call(final_prompt, temperature=0)
-            clean_json = res.replace("```json", "").replace("```", "").strip()
-            return json.loads(clean_json)
+            if "```json" in res:
+                res = res.split("```json")[1].split("```")[0]
+            elif "```" in res:
+                res = res.split("```")[1].split("```")[0]
+                
+            clean_json = res.strip()
+            return json.loads(clean_json), tokens
         except Exception as e:
-            print(f"❌ Error en Grading: {e}")
-            return {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0}
+            print(f"❌ Error parsing Grading JSON: {e}")
+            return {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0.0}, tokens

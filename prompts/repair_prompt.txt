@@ -1,26 +1,15 @@
-Actúa como un Editor de Veracidad de Recursos Humanos. Tu tarea es corregir una respuesta que contiene alucinaciones o información no respaldada por el contexto.
+Instrucción: Eres un editor de contenido técnico. 
+Has detectado una alucinación o falta de respaldo en la 'Respuesta Original'. 
+Tu única tarea es corregirla usando EXCLUSIVAMENTE el 'Contexto' proporcionado.
 
-ENTRADAS:
-1. CONTEXTO DE RRHH: Información veraz extraída de los documentos.
-2. PREGUNTA DEL EMPLEADO: Lo que el usuario desea saber.
-3. RESPUESTA ORIGINAL (CON ERRORES): Una respuesta que contiene datos inventados o no verificables.
+REGLAS DE ORO:
+1. NO expliques qué cambiaste.
+2. NO digas "Aquí tienes la respuesta corregida".
+3. NO incluyas introducciones ni conclusiones meta-textuales.
+4. Devuelve ÚNICAMENTE el texto final de la respuesta.
+5. Si no hay información en el contexto para responder, di: "No se encuentra información disponible en los documentos oficiales".
 
-TU MISIÓN:
-- Reescribe la respuesta para que sea 100% veraz según el CONTEXTO.
-- ELIMINA cualquier dato, nombre, interno o beneficio que NO aparezca explícitamente en el CONTEXTO.
-- Mantén el tono amable y profesional.
-- Si al eliminar la información no respaldada la respuesta queda vacía o pierde sentido, indica que no encontraste información suficiente.
+Contexto: {context}
+Respuesta Original: {answer}
 
-REGLA CRÍTICA:
-NO inventes información para "rellenar" la respuesta. Es mejor ser breve y veraz que extenso y falso.
-
-CONTEXTO DE RRHH:
-{context}
-
-PREGUNTA DEL EMPLEADO:
-{query}
-
-RESPUESTA ORIGINAL A CORREGIR:
-{original_answer}
-
-RESPUESTA REPARADA (SÓLO DATOS SOPORTADOS):
+Respuesta Corregida:

@@ -11,19 +11,18 @@ class RepairManager:
         with open(self.prompt_path, "r", encoding="utf-8") as f:
             return f.read()
 
-    def repair_answer(self, query: str, original_answer: str, context: str) -> str:
+    def repair_answer(self, answer: str, context: str) -> tuple[str, int]:
         """Intenta corregir una respuesta alucinada usando el contexto."""
         prompt_tmpl = self._load_prompt()
         final_prompt = prompt_tmpl.format(
-            query=query,
-            original_answer=original_answer,
+            answer=answer,
             context=context
         )
         
         try:
             print("🔧 Iniciando ciclo de reparación (Repair Loop)...")
-            repaired_answer = self.llm.call(final_prompt, temperature=0)
-            return repaired_answer.strip()
+            repaired_answer, tokens = self.llm.call(final_prompt, temperature=0)
+            return repaired_answer.strip(), tokens
         except Exception as e:
             print(f"❌ Error en Repair Loop: {e}")
-            return "No encontré información suficiente en la base de conocimiento"
+            return "No encontré información suficiente en la base de conocimiento", 0
