@@ -33,9 +33,9 @@ def extract_text_from_pdf(pdf_path):
             if not doc_title_found and ((line.isupper() and len(line) < 60) or "POLÍTICA" in line or "PROGRAMA" in line):
                 formatted_lines.append(f"\n# {line}\n")
                 doc_title_found = True
-            # 2. Secciones Principales (Ej: 1. INTRODUCCIÓN, 2. PROGRAMAS ACTIVOS)
-            # Regla: Número solo (sin punto secundario) seguido de texto en mayúsculas
-            elif re.match(r'^\d+\.\s+[A-ZÁÉÍÓÚÑ ]+$', line):
+            # 2. Secciones Principales (Ej: 1. INTRODUCCIÓN, 2. PROGRAMAS ACTIVOS, 2. SALUD (Pilar 1))
+            # Regla: Número solo (sin punto secundario) seguido de texto en mayúsculas, espacios, paréntesis y números
+            elif re.match(r'^\d+\.\s+[A-ZÁÉÍÓÚÑ \(\)\d]+$', line):
                 formatted_lines.append(f"\n## {line}\n")
             # 3. Todo lo demás: Negrita para jerarquía visual pero NO para corte
             elif re.match(r'^\d+\.\d+\.', line) or re.match(r'^\d+\.', line) or line.isupper():
@@ -61,32 +61,27 @@ def chunk_text(text):
     md_header_splits = markdown_splitter.split_text(text)
     
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1500, # Tamaño ideal para que descripción y requisitos queden en el mismo bloque
-        chunk_overlap=150,
+        chunk_size=settings.CHUNK_SIZE, # Tamaño dinámico según configuración
+        chunk_overlap=settings.CHUNK_OVERLAP,
         separators=["\n\n", "\n", ". ", " ", ""]
     )
     
     final_chunks = []
     for doc in md_header_splits:
         # Enriquecimiento de Metadatos (Parent Context Injection)
-        # Esto inyecta el contexto jerárquico directamente en el texto para fortalecer el vector
         doc_title = doc.metadata.get("Document", "General")
         section_title = doc.metadata.get("Section", "Contenido")
         
-        # Prefijo enriquecido para 'impregnar' el fragmento con palabras clave del título
         enriched_prefix = f"[CONTEXTO: {doc_title} > {section_title}]\n"
-        full_content = f"{enriched_prefix}{doc.page_content}"
         
-        if len(full_content) <= 1600:
-            final_chunks.append(full_content)
-        else:
-            # Si el fragmento es muy largo, lo dividimos pero REPETIMOS el prefijo en cada trozo
-            sub_chunks = text_splitter.split_text(full_content)
+        # Si el contenido es largo, lo dividimos usando el text_splitter
+        # El CHUNK_SIZE de settings (600) se aplicará aquí
+        if len(doc.page_content) > settings.CHUNK_SIZE:
+            sub_chunks = text_splitter.split_text(doc.page_content)
             for sc in sub_chunks:
-                if not sc.startswith("[CONTEXTO"):
-                    final_chunks.append(f"{enriched_prefix}{sc}")
-                else:
-                    final_chunks.append(sc)
+                final_chunks.append(f"{enriched_prefix}{sc}")
+        else:
+            final_chunks.append(f"{enriched_prefix}{doc.page_content}")
             
     return final_chunks
 

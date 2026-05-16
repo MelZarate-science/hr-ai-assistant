@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     ENABLE_EVALUATION: bool = True
 
     # RAG Settings
-    CHUNK_SIZE: int = 1500
+    CHUNK_SIZE: int = 600
     CHUNK_OVERLAP: int = 150
     
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

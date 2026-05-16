@@ -34,22 +34,23 @@ class RAGOrchestrator:
         raw_chunks, all_sources = retriever.get_relevant_context(rewritten_query, top_k=20)
         telemetry["steps"].append(f"3. Retrieval: {len(raw_chunks)} candidates")
 
-        # 3. Reranking (Select Top-10 best)
-        best_chunks, t_rerank = reranker.rerank(rewritten_query, raw_chunks, top_n=10)
-        telemetry["steps"].append(f"4. Reranking: {t_rerank} tokens (Top-10 selected)")
+        # 3. Reranking (Select Top-15 best to avoid missing secondary info)
+        best_chunks, t_rerank = reranker.rerank(rewritten_query, raw_chunks, top_n=15)
+        telemetry["steps"].append(f"4. Reranking: {t_rerank} tokens (Top-15 selected)")
         telemetry["total_tokens"] += t_rerank
 
         # Serialización TOON del contexto final (solo los 10 mejores)
-        # Formato estricto: fuente|contenido (extraído del prefijo enriquecido)
+        # Formato estricto: fuente|contenido (preservando saltos de línea para estructura)
         context = f"HR_Knowledge[{len(best_chunks)}]{{source,content}}:\n"
         for chunk in best_chunks:
-            # Extraemos la fuente del prefijo '[CONTEXTO: Fuente > Sección]'
             try:
-                source_part = chunk.split("]")[0].replace("[CONTEXTO: ", "").split(">")[0].strip()
-                content_part = chunk.split("]\n")[1].replace(chr(10), " ").strip()
-                context += f"{source_part}|{content_part}\n"
+                # Extraemos la fuente y el contenido preservando la estructura interna
+                parts = chunk.split("]\n", 1)
+                source_part = parts[0].replace("[CONTEXTO: ", "").split(">")[0].strip()
+                content_part = parts[1].strip()
+                context += f"{source_part}|{content_part}\n---\n"
             except:
-                context += f"Documento|{chunk.replace(chr(10), ' ')}\n"
+                context += f"Documento|{chunk.strip()}\n---\n"
         
         # Filtramos fuentes únicas para la respuesta del API
         sources = list(set([all_sources[raw_chunks.index(c)] for c in best_chunks if c in raw_chunks]))

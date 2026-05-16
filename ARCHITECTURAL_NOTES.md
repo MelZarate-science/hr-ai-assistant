@@ -17,7 +17,7 @@ En la industria, no pasamos directamente de un archivo (PDF/Word) a la Base de D
 El "Chunking" es dividir un documento largo en trozos que la IA pueda digerir.
 - **Markdown-Aware:** Usamos `MarkdownHeaderTextSplitter` para respetar la jerarquía estructural (#, ##).
 - **Metadata Enrichment (Parent Context):** Aplicamos una técnica de enriquecimiento donde cada fragmento es precedido por su contexto jerárquico (`[CONTEXTO: Titulo > Sección]`). Esto fortalece el vector semántico y asegura que la información de contexto y reglas se mantengan juntas.
-- **Tamaño de Fragmento (Chunk Size):** Calibrado a **1500 caracteres**. Este tamaño garantiza que las descripciones de programas y sus requisitos de elegibilidad se mantengan en la misma unidad lógica para una mayor fidelidad.
+- **Tamaño de Fragmento (Chunk Size):** Calibrado a **600 caracteres**. Este ajuste de grano fino asegura una mayor densidad semántica por vector, permitiendo que beneficios pequeños (ej: Kit de Idiomas) no se diluyan en fragmentos demasiado extensos y sean recuperados con mayor precisión.
 
 ## 4. El "Cerebro" Vectorial: Normalización L2 y pgvector
 - **Embeddings:** `paraphrase-multilingual-MiniLM-L12-v2`.
@@ -65,5 +65,5 @@ Hemos evolucionado de un script monolítico a una estructura de servicios especi
 
 ## 16. Optimización de Contexto: TOON (Token-Oriented Object Notation)
 Implementamos **TOON** para el envío de documentos recuperados.
-- **Técnica:** Estructura tabular compacta (`fuente|contenido`).
-- **Impacto:** Ahorro masivo de tokens al eliminar redundancia sintáctica en la ventana de contexto.
+- **Técnica:** Estructura tabular compacta (`fuente|contenido`) que preserva la jerarquía de la información mediante una gestión inteligente de saltos de línea.
+- **Impacto:** Ahorro masivo de tokens (~40%) sin sacrificar la capacidad del modelo para interpretar listados complejos y jerarquías internas.
