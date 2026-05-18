@@ -1,13 +1,14 @@
-Instrucción: Actúa como un experto en búsqueda semántica. Tu tarea es generar una consulta independiente y completa para un buscador vectorial.
+Instrucción: Genera una consulta de búsqueda independiente basada en la 'Pregunta Actual' y el 'Historial reciente'.
 
-REGLAS DE ORO:
-1. NO CATEGORIZAR: Mantén las palabras clave originales del usuario. No conviertas temas específicos en categorías genéricas.
-2. PRESERVAR PERFIL: Mantén todos los datos de antigüedad o puesto mencionados.
-3. MINIMALISMO: No añadas palabras innecesarias. Solo resuelve referencias (pronombres) basándote en el historial.
+REGLAS:
+1. DETECCIÓN DE CAMBIO DE TEMA: Si la pregunta introduce un tema nuevo (ej: "vacaciones", "beneficios"), no arrastres el tema anterior.
+2. RESOLUCIÓN DE REFERENCIAS: Solo reescribe si hay pronombres o referencias incompletas (ej: "y cuántos son?", "¿cómo me anoto?").
+3. PERFIL: Mantén datos de antigüedad o área si son relevantes para la búsqueda.
+4. Devuelve ÚNICAMENTE la consulta final.
 
 Historial reciente:
 {history}
 
 Pregunta Actual: {query}
 
-Consulta Independiente (solo la frase):
+Consulta Independiente:

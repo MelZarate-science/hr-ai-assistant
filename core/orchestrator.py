@@ -1,3 +1,5 @@
+import time
+import asyncio
 from core.llm import LLMManager
 from core.guardrails import GuardrailManager
 from core.retriever import retriever
@@ -14,79 +16,102 @@ class RAGOrchestrator:
         self.evaluator = EvalRunner()
 
     async def process_query(self, query: str, history: list):
-        telemetry = {"steps": [], "total_tokens": 0}
+        telemetry = {"steps": [], "total_tokens": 0, "durations": {}}
+        overall_start = time.perf_counter()
         
-        # 0. Rewriting
-        rewritten_query, t0 = self.llm.rewrite_query(query, history)
-        telemetry["steps"].append(f"1. Rewriting: {t0} tokens | Query: {rewritten_query}")
+        # 1. Query Rewriting
+        s0 = time.perf_counter()
+        rewritten_query, t0 = await self.llm.rewrite_query(query, history)
+        d0 = time.perf_counter() - s0
+        telemetry["durations"]["rewriting"] = f"{d0:.2f}s"
+        telemetry["steps"].append(f"1. Rewriting: {t0} tokens | {d0:.2f}s")
         telemetry["total_tokens"] += t0
 
-        # 1. Guardrail
+        # 2. Safety Guardrails
         if settings.ENABLE_GUARDRAILS:
-            is_safe, t1 = self.guardrail.validate_query(rewritten_query)
-            telemetry["steps"].append(f"2. Guardrail: {t1} tokens ({'PASS' if is_safe else 'FAIL'})")
+            s1 = time.perf_counter()
+            is_safe, t1 = await self.guardrail.validate_query(rewritten_query)
+            d1 = time.perf_counter() - s1
+            telemetry["durations"]["guardrail"] = f"{d1:.2f}s"
+            telemetry["steps"].append(f"2. Guardrail: {t1} tokens | {d1:.2f}s")
             telemetry["total_tokens"] += t1
             if not is_safe:
                 return "Fuera de ámbito.", [], False, 0.0, False, \
                        {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0}, telemetry
 
-        # 2. Retrieval (Top-20 candidates)
+        # 3. Vector Retrieval (Aumentamos a 20 para capturar todas las cláusulas legales)
+        s2 = time.perf_counter()
         raw_chunks, all_sources = retriever.get_relevant_context(rewritten_query, top_k=20)
-        telemetry["steps"].append(f"3. Retrieval: {len(raw_chunks)} candidates")
+        d2 = time.perf_counter() - s2
+        telemetry["durations"]["retrieval"] = f"{d2:.2f}s"
+        telemetry["steps"].append(f"3. Retrieval: {len(raw_chunks)} candidates | {d2:.2f}s")
 
-        # 3. Reranking (Select Top-15 best to avoid missing secondary info)
-        best_chunks, t_rerank = reranker.rerank(rewritten_query, raw_chunks, top_n=15)
-        telemetry["steps"].append(f"4. Reranking: {t_rerank} tokens (Top-15 selected)")
+        # 4. Neural Reranking (Subimos a Top-10 para asegurar precisión en temas complejos)
+        s3 = time.perf_counter()
+        best_chunks, t_rerank = await reranker.rerank(rewritten_query, raw_chunks, top_n=10)
+        d3 = time.perf_counter() - s3
+        telemetry["durations"]["reranking"] = f"{d3:.2f}s"
+        telemetry["steps"].append(f"4. Reranking: {t_rerank} tokens | {d3:.2f}s")
         telemetry["total_tokens"] += t_rerank
 
-        # Serialización TOON del contexto final (solo los 10 mejores)
-        # Formato estricto: fuente|contenido (preservando saltos de línea para estructura)
+        # TOON Serialization (Fidelidad absoluta al formato tabular)
         context = f"HR_Knowledge[{len(best_chunks)}]{{source,content}}:\n"
         for chunk in best_chunks:
-            try:
-                # Extraemos la fuente y el contenido preservando la estructura interna
+            clean_chunk = chunk.replace("\n", " ").strip()
+            if "]\n" in chunk:
                 parts = chunk.split("]\n", 1)
-                source_part = parts[0].replace("[CONTEXTO: ", "").split(">")[0].strip()
-                content_part = parts[1].strip()
-                context += f"{source_part}|{content_part}\n---\n"
-            except:
-                context += f"Documento|{chunk.strip()}\n---\n"
+                source_name = parts[0].replace("[CONTEXTO: ", "").split(">")[0].strip()
+                # Resolvemos el reemplazo de saltos de línea fuera de la f-string para evitar SyntaxError
+                content_part = parts[1].replace("\n", " ").strip()
+                context += f"{source_name}|{content_part}\n---\n"
+            else:
+                context += f"Doc|{clean_chunk}\n---\n"
         
-        # Filtramos fuentes únicas para la respuesta del API
-        sources = list(set([all_sources[raw_chunks.index(c)] for c in best_chunks if c in raw_chunks]))
+        sources = list(set([str(all_sources[raw_chunks.index(c)]) for c in best_chunks if c in raw_chunks]))
 
-        # 4. Generation
-        answer, t2 = self.llm.generate_answer(query, context, history)
-        telemetry["steps"].append(f"5. Generation: {t2} tokens")
+        # 5. Answer Generation
+        s4 = time.perf_counter()
+        answer, t2 = await self.llm.generate_answer(query, context, history)
+        d4 = time.perf_counter() - s4
+        telemetry["durations"]["generation"] = f"{d4:.2f}s"
+        telemetry["steps"].append(f"5. Generation: {t2} tokens | {d4:.2f}s")
         telemetry["total_tokens"] += t2
 
-        # 5. Evaluation & Repair
-        is_grounded = True
-        score = 1.0
-        is_repaired = False
+        # 6. Audit & Quality Control (Async Parallel)
+        is_grounded, score, is_repaired = True, 1.0, False
+        grading = {"relevance": 5, "clarity": 5, "usefulness": 5, "total_score": 5.0}
+
         if settings.ENABLE_EVALUATION:
-            eval_res, t3 = self.evaluator.check_groundedness(answer, context)
-            telemetry["total_tokens"] += t3
+            s5 = time.perf_counter()
+            (eval_res, t3), (grading_res, t6) = await asyncio.gather(
+                self.evaluator.check_groundedness(answer, context),
+                self.evaluator.get_grading(query, answer)
+            )
             
             if eval_res["status"] != "PASS":
-                answer, t4 = self.repair_manager.repair_answer(answer, context)
+                answer, t4 = await self.repair_manager.repair_answer(answer, context)
                 is_repaired = True
-                eval_res, t5 = self.evaluator.check_groundedness(answer, context)
-                telemetry["steps"].append(f"6. Eval/Repair: {t3+t4+t5} tokens")
+                eval_res, t5 = await self.evaluator.check_groundedness(answer, context)
                 telemetry["total_tokens"] += t4 + t5
-            else:
-                telemetry["steps"].append(f"6. Eval: {t3} tokens (PASS)")
             
             is_grounded = eval_res["status"] == "PASS"
             score = eval_res["groundedness_score"]
+            grading = grading_res
+            d5 = time.perf_counter() - s5
+            telemetry["durations"]["evaluation"] = f"{d5:.2f}s"
+            telemetry["steps"].append(f"6. Audit: {t3+t6} tokens | {d5:.2f}s")
 
-        # 6. Grading
-        grading = {"relevance": 5, "clarity": 5, "usefulness": 5, "total_score": 5.0}
-        if settings.ENABLE_EVALUATION:
-            grading, t6 = self.evaluator.get_grading(query, answer)
-            telemetry["total_tokens"] += t6
-
+        telemetry["total_time"] = f"{time.perf_counter() - overall_start:.2f}s"
+        
+        # Log final trazable en consola
+        print(f"\n--- 📊 RAG TELEMETRY (Refactored) ---")
+        print(f"Query: {query}")
+        for step in telemetry["steps"]:
+            print(step)
+        print(f"💰 TOTAL ESTIMATED TOKENS: {telemetry['total_tokens']}")
+        print(f"⏱️ TOTAL TIME: {telemetry['total_time']}")
+        print(f"-------------------------------------\n")
+        
         return answer, sources, is_grounded, score, is_repaired, grading, telemetry
 
-# Instancia única del orquestador
 orchestrator = RAGOrchestrator()

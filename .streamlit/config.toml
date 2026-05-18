@@ -1,0 +1,10 @@
+[server]
+# Desactiva la inspección profunda de carpetas para evitar errores de dependencias de terceros
+folderWatcherType = "none"
+
+[browser]
+gatherUsageStats = false
+
+[runner]
+# Desactiva la magia de Streamlit para mayor estabilidad
+magicEnabled = false

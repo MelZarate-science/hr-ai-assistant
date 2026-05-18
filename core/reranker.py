@@ -1,29 +1,22 @@
 from core.llm import LLMManager
-from config.settings import settings
 import json
+import re
 
 class HRReranker:
+    """Expert neural reranker to filter and prioritize HR context."""
     def __init__(self):
         self.llm = LLMManager()
 
-    def rerank(self, query: str, chunks: list, top_n: int = 5) -> tuple[list, int]:
-        """
-        Usa un SLM (Llama 8B) para re-ordenar los chunks recuperados por relevancia real.
-        Recibe una lista de strings (chunks) y devuelve los top_n mejores.
-        """
-        if not chunks:
-            return [], 0
-
-        # Preparamos los chunks con un ID para que el LLM los identifique fácilmente
+    async def rerank(self, query: str, chunks: list, top_n: int = 5) -> tuple[list, int]:
+        if not chunks: return [], 0
+        
         numbered_chunks = ""
         for i, chunk in enumerate(chunks):
-            # Limpiamos un poco el texto para el reranker
-            clean_text = chunk.replace("\n", " ")[:300] 
-            numbered_chunks += f"ID:{i} | {clean_text}\n"
+            # Proporcionamos suficiente contexto para que el reranker decida
+            numbered_chunks += f"ID:{i} | {chunk[:600]}\n"
 
-        prompt = f"""Instrucción: Actúa como un experto en clasificación de documentos de RRHH.
-Tu tarea es analizar la 'Pregunta del Usuario' y los 'Fragmentos Recuperados'.
-Selecciona los {top_n} fragmentos más relevantes que contienen la respuesta exacta.
+        prompt = f"""Instrucción: Actúa como un experto en clasificación de documentos de RRHH. 
+Tu tarea es analizar la 'Pregunta' y los 'Fragmentos' para seleccionar los más relevantes.
 
 Pregunta: {query}
 
@@ -31,28 +24,52 @@ Fragmentos:
 {numbered_chunks}
 
 REGLAS:
-1. Responde ÚNICAMENTE con una lista de IDs en formato JSON, del más relevante al menos relevante.
-2. Formato: {{"ids": [ID1, ID2, ID3, ID4, ID5]}}
-3. No des explicaciones.
+1. Responde ÚNICAMENTE un JSON con los IDs de los fragmentos que contienen información útil, ordenados por relevancia.
+2. Formato: {{"ids": [0, 1, 2]}}
+3. Devuelve solo los números de ID como enteros.
+4. No des ninguna explicación.
 
 Respuesta en JSON:"""
 
         try:
-            # Usamos el modelo pequeño (SLM) para velocidad y bajo costo
-            res, tokens = self.llm.call(prompt, temperature=0, model_name=settings.SLM_MODEL)
+            # Usamos Flash para máxima velocidad en el reranking
+            res, tokens = await self.llm.call(prompt, temperature=0, use_pro=False)
             
-            # Limpieza y parsing del JSON
+            # Limpieza robusta del JSON
             clean_json = res.replace("```json", "").replace("```", "").strip()
+            # Intentamos extraer solo el bloque JSON si hay basura
+            match = re.search(r'\{.*\}', clean_json, re.DOTALL)
+            if match:
+                clean_json = match.group(0)
+                
             data = json.loads(clean_json)
-            selected_ids = data.get("ids", [])[:top_n]
+            raw_ids = data.get("ids", [])
             
-            # Re-filtramos los chunks originales basados en los IDs seleccionados
-            reranked_chunks = [chunks[i] for i in selected_ids if i < len(chunks)]
-            return reranked_chunks, tokens
+            # Conversión segura a enteros y filtrado de IDs válidos
+            valid_ids = []
+            for rid in raw_ids:
+                try:
+                    # Extraemos solo los números si el LLM devuelve "ID0"
+                    if isinstance(rid, str):
+                        num_match = re.search(r'\d+', rid)
+                        if num_match:
+                            val = int(num_match.group(0))
+                        else:
+                            continue
+                    else:
+                        val = int(rid)
+                        
+                    if 0 <= val < len(chunks) and val not in valid_ids:
+                        valid_ids.append(val)
+                except:
+                    continue
+            
+            # Tomamos los mejores hasta el límite top_n
+            selected_ids = valid_ids[:top_n]
+            return [chunks[i] for i in selected_ids], tokens
             
         except Exception as e:
-            print(f"⚠️ Error en Reranking: {e}. Usando fallback (primeros N).")
-            # Fallback: devolver los primeros N tal cual vinieron de la DB
+            print(f"⚠️ Reranking Error: {e}. Fallback a los primeros fragmentos.")
             return chunks[:top_n], 0
 
 reranker = HRReranker()

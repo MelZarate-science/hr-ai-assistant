@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
+import os
 
 class Settings(BaseSettings):
     # Base Dir
@@ -10,13 +11,12 @@ class Settings(BaseSettings):
 
     # AI Models
     GROQ_API_KEY: str = ""
+    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
     
-    # Motor fijo a Groq según requerimiento del proyecto
-    LLM_ENGINE: str = "groq" 
+    # Motor de IA (Preferimos Gemini ahora)
+    LLM_ENGINE: str = "google" 
     
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
-    
-    # Modelo pequeño (SLM) para tareas rápidas como reescritura de consultas
     SLM_MODEL: str = "llama-3.1-8b-instant"
     
     EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"

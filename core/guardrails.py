@@ -3,29 +3,21 @@ from config.settings import settings
 from pathlib import Path
 
 class GuardrailManager:
+    """Security Layer to enforce HR-domain specificity."""
     def __init__(self):
         self.llm = LLMManager()
         self.prompt_path = Path(settings.BASE_DIR) / "prompts" / "guardrail_prompt.txt"
 
-    def _load_prompt(self):
+    async def validate_query(self, query: str) -> tuple[bool, int]:
         with open(self.prompt_path, "r", encoding="utf-8") as f:
-            return f.read()
-
-    def validate_query(self, query: str) -> tuple[bool, int]:
-        """Usa el LLM para validar la pregunta con el prompt de guardrail."""
-        prompt_tmpl = self._load_prompt()
-        final_prompt = prompt_tmpl.format(query=query)
+            template = f.read()
         
-        try:
-            # Usamos call() directamente para el guardrail con temperatura 0
-            result, tokens = self.llm.call(final_prompt, temperature=0, model_name=settings.SLM_MODEL)
+        res, tokens = await self.llm.call(template.format(query=query), temperature=0, use_pro=False)
+        
+        # FAIL-OPEN STRATEGY: Solo bloqueamos si el modelo dice explícitamente FAIL.
+        # Si hay un error de conexión o respuesta inesperada, dejamos pasar la consulta.
+        if "FAIL" in res.upper() and "PASS" not in res.upper():
+            print(f"⚠️ Guardrail BLOQUEÓ la consulta: {query}")
+            return False, tokens
             
-            if "PASS" in result.upper():
-                return True, tokens
-            else:
-                print(f"⚠️ Guardrail activado para: {query}")
-                return False, tokens
-        except Exception as e:
-            print(f"❌ Error en Guardrail: {e}")
-            # Fail-close por seguridad: si hay error, bloqueamos la consulta
-            return False, 0
+        return True, tokens

@@ -3,169 +3,186 @@ import json
 import asyncio
 import sys
 import os
+from pathlib import Path
 
-# Asegurar que el directorio raíz y el directorio 'app' estén en el path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+# Absolute Path Setup
+sys.path.append(os.getcwd())
 
-from main import ask_hr
-from routes import QueryRequest
+from app.main import ask_hr
+from app.routes import QueryRequest
 
-# Configuración de la página
+# --- UI CONFIGURATION ---
 st.set_page_config(
-    page_title="RRHH AI Assistant",
+    page_title="Asistente IA de RRHH",
     page_icon="🤖",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Título y estilo
-st.title("🤖 Asistente de RRHH (RAG + Evaluation)")
-
+# Custom CSS for polished look
 st.markdown("""
-Bienvenido al prototipo de **Asistente de Inteligencia Artificial para RRHH**. 
-Este sistema utiliza técnicas de **RAG (Retrieval-Augmented Generation)** para responder preguntas 
-basándose exclusivamente en la documentación interna de la empresa.
+    <style>
+    .stChatMessage { border-radius: 15px; margin-bottom: 10px; }
+    .stMetric { background-color: #f0f2f6; padding: 10px; border-radius: 10px; }
+    .source-tag { 
+        background-color: #e1e4e8; 
+        color: #0366d6; 
+        padding: 2px 8px; 
+        border-radius: 5px; 
+        font-size: 0.8em; 
+        font-weight: bold;
+        margin-right: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
----
-""")
-
-# Estado de la sesión para el historial de chat
+# --- SESSION STATE ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "processing" not in st.session_state:
+    st.session_state.processing = False
+if "last_eval" in st.session_state and not isinstance(st.session_state.last_eval, dict):
+    # Fix for legacy data
+    st.session_state.last_eval = None
 
-# Sidebar para Evaluación y Metadatos
+# --- SIDEBAR: KNOWLEDGE & AUDIT ---
 with st.sidebar:
-    st.header("📂 Conocimiento Base")
-    st.markdown("""
-    Documentos indexados actualmente:
-    - 📄 **Política de Vacaciones y Licencias**
-    - 📄 **Programa de Beneficios Corporativos**
-    - 📄 **Programa de RSE**
-    """)
+    st.title("📂 Centro de Control")
     
-    st.markdown("---")
-    st.header("📊 Panel de Auditoría")
+    tab1, tab2 = st.tabs(["Auditoría", "Documentos"])
     
-    # Espacio para mostrar la última evaluación
-    if "last_eval" in st.session_state:
-        eval_data = st.session_state.last_eval
-        answer_text = st.session_state.messages[-1]["content"] if st.session_state.messages else ""
-        
-        # 1. Indicador de Estado Dinámico
-        if "No encontré información suficiente" in answer_text:
-            st.warning("⚠️ Estado: No se encontró información suficiente")
-        elif eval_data.get("is_repaired", False):
-            st.info("🔧 Estado: Respuesta ajustada para asegurar precisión")
-        elif eval_data["is_grounded"]:
-            st.success("✅ Estado: Respuesta verificada")
-        else:
-            st.error("❌ Estado: Alucinación detectada")
-
-        # 2. Visualización de Groundedness Score
-        score = eval_data.get("groundedness_score", 0.0)
-        st.write(f"**Groundedness:** {score:.2f} ({score*100:.0f}% soportado por documentos)")
-        st.progress(score)
+    with tab1:
+        if "last_eval" in st.session_state and st.session_state.last_eval:
+            e = st.session_state.last_eval
+            st.subheader("🔍 Verificación en Tiempo Real")
             
-        st.markdown("---")
-        st.write("**Puntajes de Calidad (LLM-as-a-Judge):**")
-        
-        # 3. Métricas Detalladas
-        cols = st.columns(3)
-        with cols[0]:
-            st.metric("Relevancia", f"{eval_data['grading']['relevance']}/5")
-        with cols[1]:
-            st.metric("Claridad", f"{eval_data['grading']['clarity']}/5")
-        with cols[2]:
-            st.metric("Utilidad", f"{eval_data['grading']['usefulness']}/5")
-        
-        st.metric("Puntaje Total", f"{eval_data['grading']['total_score']}/5.0")
-        
-        if eval_data["sources"]:
-            st.markdown("**Fuentes consultadas:**")
-            for src in eval_data["sources"]:
-                st.caption(f"📄 {src}")
-    else:
-        st.info("Esperando consulta para realizar auditoría en tiempo real.")
+            # Groundedness Metric
+            score = e.get("score", 0.0)
+            status_color = "green" if score > 0.8 else "orange" if score > 0.5 else "red"
+            st.markdown(f"**Nivel de Veracidad:** <span style='color:{status_color}'>{score*100:.0f}%</span>", unsafe_allow_html=True)
+            st.progress(score)
+            
+            if e.get("is_repaired"):
+                st.warning("🔧 Respuesta auto-corregida para mayor precisión.")
+            
+            st.markdown("---")
+            st.write("**Calidad de Respuesta (1-5):**")
+            c = st.columns(3)
+            c[0].metric("Relevancia", e['grading']['relevance'])
+            c[1].metric("Claridad", e['grading']['clarity'])
+            c[2].metric("Utilidad", e['grading']['usefulness'])
+            
+            with st.expander("📝 Razonamiento de Auditoría"):
+                st.write(e.get("reasoning", "Sin detalles adicionales."))
+        else:
+            st.info("Realiza una pregunta para ver el análisis de veracidad.")
 
-    st.markdown("---")
-    if st.button("🗑️ Limpiar Historial"):
+    with tab2:
+        st.subheader("📄 Documentación Indexada")
+        st.caption("Haz clic para verificar el contenido base.")
+        
+        doc_files = {
+            "Política de Vacaciones": "data/raw/hr_docs_extended/POLITICA_VACACIONES_V2.txt",
+            "Programa de Beneficios": "data/raw/hr_docs_extended/PROGRAMA_BENEFICIOS_V2.txt",
+            "Programa de RSE": "data/raw/hr_docs_extended/PROGRAMA_RSE_V2.txt"
+        }
+        
+        for name, path in doc_files.items():
+            if st.button(f"👁️ Ver {name}", key=path):
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8") as f:
+                        st.session_state.viewing_doc = (name, f.read())
+                else:
+                    st.error("Archivo no encontrado.")
+
+    if st.button("🗑️ Limpiar Conversación", use_container_width=True):
         st.session_state.messages = []
-        if "last_eval" in st.session_state:
-            del st.session_state.last_eval
+        if "last_eval" in st.session_state: del st.session_state.last_eval
         st.rerun()
 
-# Sección de preguntas sugeridas
-st.subheader("💡 ¿No sabes qué preguntar? Prueba con estas:")
-col1, col2, col3 = st.columns(3)
+# --- MAIN INTERFACE ---
+st.title("🤖 Asistente de RRHH Inteligente")
+st.caption("Consultas basadas en políticas oficiales de la empresa")
 
-suggestions = [
-    "¿Cuántos días de vacaciones tengo si llevo 3 años?",
-    "¿Cuáles son los beneficios de salud disponibles?",
-    "¿Qué actividades de RSE hace la empresa?"
-]
+# Document Viewer Modal (Simulated)
+if "viewing_doc" in st.session_state:
+    with st.expander(f"📖 Previsualización: {st.session_state.viewing_doc[0]}", expanded=True):
+        st.text_area("Contenido del documento", st.session_state.viewing_doc[1], height=300)
+        if st.button("Cerrar Vista"):
+            del st.session_state.viewing_doc
+            st.rerun()
 
-selected_suggestion = None
+# Suggestions (Interactive Tiles)
+if not st.session_state.messages:
+    st.subheader("🚀 Comienza con una pregunta sugerida:")
+    suggestions = [
+        "¿Cuántos días de vacaciones me corresponden?",
+        "¿Cuáles son los beneficios de salud y gimnasio?",
+        "¿A qué programas de RSE puedo sumarme?"
+    ]
+    cols = st.columns(len(suggestions))
+    for i, s in enumerate(suggestions):
+        if cols[i].button(s, use_container_width=True):
+            st.session_state.messages.append({"role": "user", "content": s})
+            st.session_state.active_prompt = s
 
-with col1:
-    if st.button(suggestions[0]):
-        selected_suggestion = suggestions[0]
-with col2:
-    if st.button(suggestions[1]):
-        selected_suggestion = suggestions[1]
-with col3:
-    if st.button(suggestions[2]):
-        selected_suggestion = suggestions[2]
+# Thread Rendering
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
 
-st.markdown("---")
+# --- CHAT CONTROLLER ---
+user_input = st.chat_input("Escribe tu consulta aquí...", disabled=st.session_state.processing)
 
-# Mostrar historial de chat
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# Logic to trigger processing
+final_query = None
+if user_input:
+    final_query = user_input
+    st.session_state.messages.append({"role": "user", "content": final_query})
+    st.rerun() # Refresh to show user message and disable input
 
-# Entrada de chat
-prompt = st.chat_input("¿En qué puedo ayudarte hoy?")
-
-# Si el usuario selecciona una sugerencia o escribe algo
-if selected_suggestion or prompt:
-    input_text = selected_suggestion if selected_suggestion else prompt
+if st.session_state.messages and st.session_state.messages[-1]["role"] == "user" and not st.session_state.processing:
+    final_query = st.session_state.messages[-1]["content"]
     
-    # Agregar mensaje del usuario al historial
-    st.session_state.messages.append({"role": "user", "content": input_text})
-    with st.chat_message("user"):
-        st.markdown(input_text)
-
-    # Llamada Directa a la Lógica
     with st.chat_message("assistant"):
-        with st.spinner("Consultando base de conocimientos..."):
-            try:
-                # Preparamos el request
-                request_data = QueryRequest(
-                    query=input_text,
-                    history=st.session_state.messages[:-1]
-                )
-                
-                # Ejecutamos la lógica (ask_hr es asíncrona)
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                data = loop.run_until_complete(ask_hr(request_data))
-                
-                # Mostrar respuesta
-                st.markdown(data.answer)
-                
-                # Guardar evaluación para el sidebar
-                st.session_state.last_eval = {
-                    "is_grounded": data.is_grounded,
-                    "groundedness_score": data.groundedness_score,
-                    "is_repaired": data.is_repaired,
-                    "grading": data.grading.model_dump(),
-                    "sources": data.sources
-                }
-                
-                # Agregar a historial
-                st.session_state.messages.append({"role": "assistant", "content": data.answer})
-                
-                # Forzar recarga del sidebar
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error procesando la consulta: {e}")
+        st.session_state.processing = True
+        # Mensajes amigables en español
+        status_placeholder = st.empty()
+        status_placeholder.status("🔍 Consultando políticas oficiales...", expanded=True)
+        
+        try:
+            # Event Loop Bridge
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            request = QueryRequest(query=final_query, history=st.session_state.messages[:-1])
+            
+            # Step 1: Processing
+            data = loop.run_until_complete(ask_hr(request))
+            
+            # Step 2: Show result
+            status_placeholder.empty()
+            st.markdown(data.answer)
+            
+            # Step 3: Show Sources found as tags
+            if data.sources:
+                st.markdown(" ".join([f"<span class='source-tag'>{s}</span>" for s in data.sources]), unsafe_allow_html=True)
+            
+            # Update Audit State
+            st.session_state.last_eval = {
+                "score": data.groundedness_score,
+                "is_grounded": data.is_grounded,
+                "is_repaired": data.is_repaired,
+                "grading": data.grading.model_dump(),
+                "sources": data.sources
+            }
+            
+            st.session_state.messages.append({"role": "assistant", "content": data.answer})
+            
+        except Exception as ex:
+            st.error(f"Hubo un problema técnico al procesar tu consulta. Por favor, intenta de nuevo.")
+            print(f"DEBUG Error: {ex}")
+        finally:
+            st.session_state.processing = False
+            loop.close()
+            st.rerun()
