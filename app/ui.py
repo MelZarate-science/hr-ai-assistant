@@ -49,7 +49,7 @@ if "last_eval" in st.session_state and not isinstance(st.session_state.last_eval
 with st.sidebar:
     st.title("📂 Centro de Control")
     
-    tab1, tab2 = st.tabs(["Auditoría", "Documentos"])
+    tab1, tab2, tab3 = st.tabs(["Auditoría", "Documentos", "Trazabilidad"])
     
     with tab1:
         if "last_eval" in st.session_state and st.session_state.last_eval:
@@ -94,6 +94,21 @@ with st.sidebar:
                         st.session_state.viewing_doc = (name, f.read())
                 else:
                     st.error("Archivo no encontrado.")
+
+    with tab3:
+        st.subheader("⚡ Pipeline Trace")
+        if "last_eval" in st.session_state and "telemetry" in st.session_state.last_eval:
+            t = st.session_state.last_eval["telemetry"]
+            if t:
+                st.write(f"⏱️ **Tiempo Total:** {t.get('total_time', 'N/A')}")
+                st.write(f"💰 **Tokens Estimados:** {t.get('total_tokens', 'N/A')}")
+                st.markdown("---")
+                for step in t.get("steps", []):
+                    st.code(step, language="text")
+            else:
+                st.warning("No se recibió telemetría en la última consulta.")
+        else:
+            st.info("Realiza una pregunta para ver el rastro de ejecución.")
 
     if st.button("🗑️ Limpiar Conversación", use_container_width=True):
         st.session_state.messages = []
