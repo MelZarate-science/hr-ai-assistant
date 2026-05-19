@@ -18,4 +18,5 @@ class QueryResponse(BaseModel):
     groundedness_score: float = 0.0
     is_repaired: bool = False
     grading: Grading
+    reasoning: Optional[str] = "No se proporcionó razonamiento adicional."
     error: Optional[str] = None

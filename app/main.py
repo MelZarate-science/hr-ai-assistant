@@ -8,7 +8,7 @@ app = FastAPI(title="HR AI Assistant API (Enterprise Refactor)")
 @app.post("/ask", response_model=QueryResponse)
 async def ask_hr(request: QueryRequest):
     # Delegamos toda la lógica al orquestador
-    answer, sources, is_grounded, score, is_repaired, grading, telemetry = \
+    answer, sources, is_grounded, score, is_repaired, grading, telemetry, reasoning = \
         await orchestrator.process_query(request.query, request.history)
 
     # Log Final de Telemetría (Limpio)
@@ -23,7 +23,8 @@ async def ask_hr(request: QueryRequest):
         is_grounded=is_grounded, 
         groundedness_score=score, 
         is_repaired=is_repaired, 
-        grading=Grading(**grading)
+        grading=Grading(**grading),
+        reasoning=reasoning
     )
 
 @app.on_event("shutdown")

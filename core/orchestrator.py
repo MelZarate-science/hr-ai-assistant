@@ -46,9 +46,9 @@ class RAGOrchestrator:
         telemetry["durations"]["retrieval"] = f"{d2:.2f}s"
         telemetry["steps"].append(f"3. Retrieval: {len(raw_chunks)} candidates | {d2:.2f}s")
 
-        # 4. Neural Reranking (Subimos a Top-10 para asegurar precisión en temas complejos)
+        # 4. Neural Reranking (Subimos a Top-12 para asegurar precisión en temas complejos)
         s3 = time.perf_counter()
-        best_chunks, t_rerank = await reranker.rerank(rewritten_query, raw_chunks, top_n=10)
+        best_chunks, t_rerank = await reranker.rerank(rewritten_query, raw_chunks, top_n=12)
         d3 = time.perf_counter() - s3
         telemetry["durations"]["reranking"] = f"{d3:.2f}s"
         telemetry["steps"].append(f"4. Reranking: {t_rerank} tokens | {d3:.2f}s")
@@ -79,6 +79,7 @@ class RAGOrchestrator:
 
         # 6. Audit & Quality Control (Async Parallel)
         is_grounded, score, is_repaired = True, 1.0, False
+        reasoning = "Respuesta generada y validada correctamente."
         grading = {"relevance": 5, "clarity": 5, "usefulness": 5, "total_score": 5.0}
 
         if settings.ENABLE_EVALUATION:
@@ -96,6 +97,7 @@ class RAGOrchestrator:
             
             is_grounded = eval_res["status"] == "PASS"
             score = eval_res["groundedness_score"]
+            reasoning = eval_res.get("reasoning", "No se detectaron inconsistencias.")
             grading = grading_res
             d5 = time.perf_counter() - s5
             telemetry["durations"]["evaluation"] = f"{d5:.2f}s"
@@ -112,6 +114,6 @@ class RAGOrchestrator:
         print(f"⏱️ TOTAL TIME: {telemetry['total_time']}")
         print(f"-------------------------------------\n")
         
-        return answer, sources, is_grounded, score, is_repaired, grading, telemetry
+        return answer, sources, is_grounded, score, is_repaired, grading, telemetry, reasoning
 
 orchestrator = RAGOrchestrator()

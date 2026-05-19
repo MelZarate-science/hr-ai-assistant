@@ -1,10 +1,10 @@
-Instrucción: Genera una consulta de búsqueda independiente basada en la 'Pregunta Actual' y el 'Historial reciente'.
+Instrucción: Genera una consulta de búsqueda independiente y optimizada para búsqueda vectorial basada en la 'Pregunta Actual' y el 'Historial reciente'.
 
-REGLAS:
-1. DETECCIÓN DE CAMBIO DE TEMA: Si la pregunta introduce un tema nuevo (ej: "vacaciones", "beneficios"), no arrastres el tema anterior.
-2. RESOLUCIÓN DE REFERENCIAS: Solo reescribe si hay pronombres o referencias incompletas (ej: "y cuántos son?", "¿cómo me anoto?").
-3. PERFIL: Mantén datos de antigüedad o área si son relevantes para la búsqueda.
-4. Devuelve ÚNICAMENTE la consulta final.
+REGLAS DE ORO:
+1. CONTEXTO SEMÁNTICO: Si el usuario pregunta "y a otro?", "¿cómo me anoto?" o "¿cuáles son?", identifica a qué entidad (programa de RSE, beneficio, política) se refiere basándote en el historial y menciónala explícitamente en la consulta.
+2. DETECCIÓN DE CAMBIO DE TEMA: Si la pregunta introduce un tema nuevo (ej: de "vacaciones" a "RSE"), prioriza el tema nuevo pero mantén los datos de perfil del usuario (antigüedad, área).
+3. NO GENERALIZAR: No conviertas una pregunta específica en una genérica. Mantén las palabras clave originales.
+4. Devuelve ÚNICAMENTE la consulta final, sin explicaciones.
 
 Historial reciente:
 {history}
