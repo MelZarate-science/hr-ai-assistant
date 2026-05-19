@@ -21,7 +21,7 @@ class EvalRunner:
         safe_answer = answer.replace('"', "'")
         final_prompt = prompt_tmpl.format(context=safe_context, answer=safe_answer)
         
-        res, tokens = await self.llm.call(final_prompt, temperature=0, use_pro=True)
+        res, tokens = await self.llm.call(final_prompt, temperature=0, use_pro=False)
         try:
             # Robust JSON extraction
             clean_json = res.replace("```json", "").replace("```", "").strip()
@@ -42,7 +42,7 @@ class EvalRunner:
         safe_answer = answer.replace('"', "'")
         final_prompt = prompt_tmpl.format(query=safe_query, answer=safe_answer)
         
-        res, tokens = await self.llm.call(final_prompt, temperature=0, use_pro=True)
+        res, tokens = await self.llm.call(final_prompt, temperature=0, use_pro=False)
         try:
             clean_json = res.replace("```json", "").replace("```", "").strip()
             return json.loads(clean_json), tokens

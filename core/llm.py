@@ -48,5 +48,5 @@ class LLMManager:
             template = f.read()
         history_text = "\n".join([f"{m['role']}: {m['content']}" for m in history[-10:]])
         final_prompt = template.replace("{history}", history_text).replace("{context}", context).replace("{query}", query)
-        # Generación usa PRO (razonamiento)
-        return await self.call(final_prompt, temperature=0.0, use_pro=True)
+        # Generación usa FLASH para latencia aceptable (Pro es demasiado lento para UX)
+        return await self.call(final_prompt, temperature=0.0, use_pro=False)

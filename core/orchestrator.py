@@ -37,18 +37,18 @@ class RAGOrchestrator:
             telemetry["total_tokens"] += t1
             if not is_safe:
                 return "Fuera de ámbito.", [], False, 0.0, False, \
-                       {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0}, telemetry
+                       {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0}, telemetry, "Consulta bloqueada por política de seguridad."
 
-        # 3. Vector Retrieval (Aumentamos a 20 para capturar todas las cláusulas legales)
+        # 3. Vector Retrieval (Subimos a 40 para máxima cobertura)
         s2 = time.perf_counter()
-        raw_chunks, all_sources = retriever.get_relevant_context(rewritten_query, top_k=20)
+        raw_chunks, all_sources = retriever.get_relevant_context(rewritten_query, top_k=40)
         d2 = time.perf_counter() - s2
         telemetry["durations"]["retrieval"] = f"{d2:.2f}s"
         telemetry["steps"].append(f"3. Retrieval: {len(raw_chunks)} candidates | {d2:.2f}s")
 
-        # 4. Neural Reranking (Subimos a Top-12 para asegurar precisión en temas complejos)
+        # 4. Neural Reranking (Optimizado a Top-10 para balance velocidad/precisión)
         s3 = time.perf_counter()
-        best_chunks, t_rerank = await reranker.rerank(rewritten_query, raw_chunks, top_n=12)
+        best_chunks, t_rerank = await reranker.rerank(rewritten_query, raw_chunks, top_n=10)
         d3 = time.perf_counter() - s3
         telemetry["durations"]["reranking"] = f"{d3:.2f}s"
         telemetry["steps"].append(f"4. Reranking: {t_rerank} tokens | {d3:.2f}s")
