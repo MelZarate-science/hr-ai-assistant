@@ -30,6 +30,7 @@ class DatabaseManager:
 
     def get_connection(self):
         """Obtiene una conexión viva del pool con validación de estado y reintento."""
+        conn = None
         for attempt in range(2):
             try:
                 conn = DatabaseManager._pool.getconn()
@@ -40,7 +41,10 @@ class DatabaseManager:
             except Exception as e:
                 print(f"⚠️ Reintento {attempt+1}: Conexión dañada ({e}). Re-inicializando...")
                 if conn:
-                    DatabaseManager._pool.putconn(conn, close=True)
+                    try:
+                        DatabaseManager._pool.putconn(conn, close=True)
+                    except:
+                        pass
                 self._initialize_pool()
         
         return DatabaseManager._pool.getconn()

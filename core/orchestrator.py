@@ -37,7 +37,7 @@ class RAGOrchestrator:
             telemetry["total_tokens"] += t1
             if not is_safe:
                 return "Fuera de ámbito.", [], False, 0.0, False, \
-                       {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0}, telemetry, "Consulta bloqueada por política de seguridad.", "Consulta bloqueada por política de seguridad."
+                       {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0}, telemetry, "Consulta bloqueada por política de seguridad."
 
         # 3. Vector Retrieval (Subimos a 40 para máxima cobertura)
         s2 = time.perf_counter()
