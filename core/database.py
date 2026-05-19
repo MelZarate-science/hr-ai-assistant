@@ -33,17 +33,16 @@ class DatabaseManager:
         for attempt in range(2):
             try:
                 conn = DatabaseManager._pool.getconn()
-                # Validación proactiva: si la conexión está cerrada o dañada, la reponemos
-                if conn.closed != 0:
-                    print(f"🔄 Reintento {attempt+1}: Detectada conexión cerrada, reponiendo...")
-                    DatabaseManager._pool.putconn(conn, close=True)
-                    continue
+                # Validación proactiva mediante una consulta rápida
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1")
                 return conn
             except Exception as e:
-                print(f"⚠️ Reintento {attempt+1}: Error obteniendo conexión ({e}). Reiniciando pool...")
+                print(f"⚠️ Reintento {attempt+1}: Conexión dañada ({e}). Re-inicializando...")
+                if conn:
+                    DatabaseManager._pool.putconn(conn, close=True)
                 self._initialize_pool()
         
-        # Si fallan los reintentos, lanzamos excepción
         return DatabaseManager._pool.getconn()
 
     def release_connection(self, conn):

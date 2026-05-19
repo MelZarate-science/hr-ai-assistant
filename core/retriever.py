@@ -5,7 +5,7 @@ class HRRetriever:
     def __init__(self):
         self.embed_manager = EmbeddingManager()
 
-    def get_relevant_context(self, query_text: str, threshold: float = 0.25, top_k: int = 20):
+    def get_relevant_context(self, query_text: str, threshold: float = 0.20, top_k: int = 20):
         """
         Busca contexto en la base de datos usando similitud vectorial con reintentos para resiliencia.
         """
