@@ -10,8 +10,8 @@ class LLMManager:
             raise ValueError("GOOGLE_API_KEY no configurada.")
         genai.configure(api_key=settings.GOOGLE_API_KEY)
         # Cargamos ambos modelos para usarlos según la complejidad
-        self.pro_model = genai.GenerativeModel('models/gemini-2.5-flash') # Default Pro
-        self.flash_model = genai.GenerativeModel('models/gemini-2.5-flash') # Default Flash
+        self.pro_model = genai.GenerativeModel(f'models/{settings.PRO_MODEL}') # Default Pro
+        self.flash_model = genai.GenerativeModel(f'models/{settings.FLASH_MODEL}') # Default Flash
 
     def _sync_call(self, prompt: str, temperature: float, use_pro: bool):
         model = self.pro_model if use_pro else self.flash_model

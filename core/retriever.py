@@ -5,40 +5,43 @@ class HRRetriever:
     def __init__(self):
         self.embed_manager = EmbeddingManager()
 
-    def get_relevant_context(self, query_text: str, threshold: float = 0.20, top_k: int = 20):
+    def get_relevant_context(self, query_text: str, threshold: float = 0.25, top_k: int = 20):
         """
-        Busca contexto en la base de datos usando similitud vectorial.
-        Devuelve una lista de fragmentos (chunks) para ser procesados por el Reranker.
+        Busca contexto en la base de datos usando similitud vectorial con reintentos para resiliencia.
         """
         query_embedding = self.embed_manager.generate_single_embedding(query_text)
-        conn = db_manager.get_connection()
-        chunks = []
-        sources = []
+        attempts = 2
         
-        try:
-            cur = conn.cursor()
-            sql = """
-                SELECT content, source, (embedding <#> %s::vector) * -1 AS similarity
-                FROM documents 
-                ORDER BY embedding <#> %s::vector
-                LIMIT %s;
-            """
-            cur.execute(sql, (query_embedding, query_embedding, top_k))
-            results = cur.fetchall()
+        for attempt in range(attempts):
+            conn = db_manager.get_connection()
+            chunks = []
+            sources = []
+            try:
+                cur = conn.cursor()
+                sql = """
+                    SELECT content, source, (embedding <#> %s::vector) * -1 AS similarity
+                    FROM documents 
+                    ORDER BY embedding <#> %s::vector
+                    LIMIT %s;
+                """
+                cur.execute(sql, (query_embedding, query_embedding, top_k))
+                results = cur.fetchall()
+                
+                for content, source, similarity in results:
+                    if similarity >= threshold:
+                        chunks.append(content)
+                        sources.append(source)
+                
+                cur.close()
+                return chunks, sources # Éxito
+            except Exception as e:
+                print(f"⚠️ Intento {attempt+1} fallido: {e}")
+                if attempt == attempts - 1:
+                    print(f"❌ Error final durante el retrieval: {e}")
+            finally:
+                db_manager.release_connection(conn)
             
-            for content, source, similarity in results:
-                if similarity >= threshold:
-                    # Guardamos el chunk con su metadata enriquecida
-                    chunks.append(content)
-                    sources.append(source)
-            
-            cur.close()
-        except Exception as e:
-            print(f"❌ Error durante el retrieval: {e}")
-        finally:
-            db_manager.release_connection(conn)
-            
-        return chunks, sources
+        return [], []
 
 # Instancia única del recuperador
 retriever = HRRetriever()

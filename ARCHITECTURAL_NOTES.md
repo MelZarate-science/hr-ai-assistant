@@ -38,6 +38,7 @@ Hemos evolucionado de un script monolítico a una estructura de servicios especi
 - **Toggles:** Interruptores en `.env` para desactivar módulos costosos durante el desarrollo.
 
 ## 8. Aumentación y Generación (LLM)
+- **Arquitectura por Tiers (Gemini):** El sistema utiliza **Gemini 2.5 Flash** para tareas rápidas y de bajo costo (como reformulación de consultas) y **Gemini 2.5 Pro** para las tareas complejas de razonamiento, generación final y evaluación de veracidad.
 - **Aumentación:** Inyección de hasta 10 fragmentos de contexto enriquecido en formato TOON.
 - **Temperatura 0.0:** Configuramos el motor de IA con temperatura cero para garantizar respuestas deterministas y evitar alucinaciones creativas.
 

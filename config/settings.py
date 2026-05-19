@@ -10,14 +10,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     # AI Models
-    GROQ_API_KEY: str = ""
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
     
-    # Motor de IA (Preferimos Gemini ahora)
+    # Motor de IA principal
     LLM_ENGINE: str = "google" 
     
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
-    SLM_MODEL: str = "llama-3.1-8b-instant"
+    # Modelos de Gemini (Tiered Architecture)
+    PRO_MODEL: str = "gemini-2.5-pro"
+    FLASH_MODEL: str = "gemini-2.5-flash"
     
     EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
