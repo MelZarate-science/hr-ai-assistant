@@ -19,4 +19,5 @@ class QueryResponse(BaseModel):
     is_repaired: bool = False
     grading: Grading
     reasoning: Optional[str] = "No se proporcionó razonamiento adicional."
+    telemetry: Optional[dict] = None
     error: Optional[str] = None

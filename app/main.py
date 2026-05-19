@@ -11,12 +11,6 @@ async def ask_hr(request: QueryRequest):
     answer, sources, is_grounded, score, is_repaired, grading, telemetry, reasoning = \
         await orchestrator.process_query(request.query, request.history)
 
-    # Log Final de Telemetría (Limpio)
-    print("\n--- 📊 RAG TELEMETRY (Refactored) ---")
-    for step in telemetry["steps"]: print(step)
-    print(f"💰 TOTAL ESTIMATED TOKENS: {telemetry['total_tokens']}")
-    print("-------------------------------------\n")
-
     return QueryResponse(
         answer=answer, 
         sources=sources, 
@@ -24,7 +18,8 @@ async def ask_hr(request: QueryRequest):
         groundedness_score=score, 
         is_repaired=is_repaired, 
         grading=Grading(**grading),
-        reasoning=reasoning
+        reasoning=reasoning,
+        telemetry=telemetry
     )
 
 @app.on_event("shutdown")

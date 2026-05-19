@@ -175,7 +175,8 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 "is_repaired": data.is_repaired,
                 "grading": data.grading.model_dump(),
                 "sources": data.sources,
-                "reasoning": data.reasoning
+                "reasoning": data.reasoning,
+                "telemetry": data.telemetry
             }
             
             st.session_state.messages.append({"role": "assistant", "content": data.answer})
