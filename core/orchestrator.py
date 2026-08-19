@@ -88,7 +88,10 @@ class RAGOrchestrator:
                 self.evaluator.check_groundedness(answer, context),
                 self.evaluator.get_grading(query, answer)
             )
-            
+            # Estas dos llamadas se imprimian en el paso 6 pero nunca entraban
+            # en el acumulador: el total reportado subestimaba la auditoria.
+            telemetry["total_tokens"] += t3 + t6
+
             if eval_res["status"] != "PASS":
                 answer, t4 = await self.repair_manager.repair_answer(answer, context)
                 is_repaired = True
