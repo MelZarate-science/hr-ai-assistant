@@ -1,4 +1,4 @@
-from core.llm import LLMManager
+from core.llm import LLMManager, LLMError
 import json
 import re
 
@@ -34,6 +34,11 @@ Respuesta en JSON:"""
         try:
             # Usamos Flash para máxima velocidad en el reranking
             res, tokens = await self.llm.call(prompt, temperature=0, use_pro=False)
+        except LLMError as e:
+            print(f"⚠️ Reranking no disponible: {e}. Fallback a los primeros fragmentos.")
+            return chunks[:top_n], 0
+
+        try:
             
             # Limpieza robusta del JSON
             clean_json = res.replace("```json", "").replace("```", "").strip()

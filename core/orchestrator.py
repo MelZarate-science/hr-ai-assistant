@@ -1,6 +1,6 @@
 import time
 import asyncio
-from core.llm import LLMManager
+from core.llm import LLMManager, LLMError
 from core.guardrails import GuardrailManager
 from core.retriever import retriever
 from core.reranker import reranker
@@ -21,7 +21,13 @@ class RAGOrchestrator:
         
         # 1. Query Rewriting
         s0 = time.perf_counter()
-        rewritten_query, t0 = await self.llm.rewrite_query(query, history)
+        try:
+            rewritten_query, t0 = await self.llm.rewrite_query(query, history)
+        except LLMError as e:
+            # Etapa no critica: si falla, seguimos con la consulta original en
+            # vez de tirar abajo el pipeline completo.
+            print(f"⚠️ Rewriting no disponible, uso la consulta original: {e}")
+            rewritten_query, t0 = query, 0
         d0 = time.perf_counter() - s0
         telemetry["durations"]["rewriting"] = f"{d0:.2f}s"
         telemetry["steps"].append(f"1. Rewriting: {t0} tokens | {d0:.2f}s")
@@ -71,7 +77,22 @@ class RAGOrchestrator:
 
         # 5. Answer Generation
         s4 = time.perf_counter()
-        answer, t2 = await self.llm.generate_answer(query, context, history)
+        try:
+            answer, t2 = await self.llm.generate_answer(query, context, history)
+        except LLMError as e:
+            # Sin respuesta generada no hay nada que auditar ni calificar.
+            # Antes, "ERROR_CONEXION" se mostraba al usuario como si fuera
+            # una respuesta valida y entraba a la auditoria como alucinacion.
+            print(f"❌ Generacion no disponible: {e}")
+            telemetry["steps"].append(f"5. Generation: ERROR ({e})")
+            telemetry["total_time"] = f"{time.perf_counter() - overall_start:.2f}s"
+            return (
+                "El asistente no está disponible en este momento. Por favor, intentá de nuevo en unos minutos.",
+                [], False, 0.0, False,
+                {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0},
+                telemetry,
+                f"Error de generación: {e}"
+            )
         d4 = time.perf_counter() - s4
         telemetry["durations"]["generation"] = f"{d4:.2f}s"
         telemetry["steps"].append(f"5. Generation: {t2} tokens | {d4:.2f}s")
@@ -92,22 +113,49 @@ class RAGOrchestrator:
             # en el acumulador: el total reportado subestimaba la auditoria.
             telemetry["total_tokens"] += t3 + t6
 
-            if eval_res["status"] != "PASS":
-                answer, t4 = await self.repair_manager.repair_answer(answer, context)
-                is_repaired = True
-                # La respuesta cambio, asi que hay que auditarla Y calificarla de
-                # nuevo. El grading que corrio en paralelo describe el texto
-                # anterior, que el usuario ya no va a ver.
-                (eval_res, t5), (grading_res, t7) = await asyncio.gather(
-                    self.evaluator.check_groundedness(answer, context),
-                    self.evaluator.get_grading(query, answer)
-                )
-                telemetry["total_tokens"] += t4 + t5 + t7
+            # Solo un FAIL real dispara reparacion. UNMEASURED significa que la
+            # auditoria no pudo correr (fallo de API o de parseo del juez), y
+            # reparar a ciegas sobre eso seria peor que no hacerlo.
+            if eval_res["status"] == "FAIL":
+                try:
+                    answer, t4 = await self.repair_manager.repair_answer(answer, context)
+                    is_repaired = True
+                    # La respuesta cambio, asi que hay que auditarla Y calificarla
+                    # de nuevo. El grading que corrio en paralelo describe el
+                    # texto anterior, que el usuario ya no va a ver.
+                    (eval_res, t5), (grading_res, t7) = await asyncio.gather(
+                        self.evaluator.check_groundedness(answer, context),
+                        self.evaluator.get_grading(query, answer)
+                    )
+                    telemetry["total_tokens"] += t4 + t5 + t7
+                except LLMError as e:
+                    # Sin reparacion no cambio nada: is_repaired queda en False
+                    # para no afirmar una correccion que no ocurrio, y el eval
+                    # original (FAIL) se conserva tal cual.
+                    print(f"❌ Repair no disponible: {e}")
+                    telemetry["steps"].append(f"6c. Repair: no disponible ({e})")
 
-            is_grounded = eval_res["status"] == "PASS"
-            score = eval_res["groundedness_score"]
-            reasoning = eval_res.get("reasoning", "No se detectaron inconsistencias.")
-            grading = grading_res
+            if eval_res["status"] == "UNMEASURED":
+                # No se puede afirmar ni negar veracidad: no hay schema Optional
+                # para esto todavia, asi que se marca explicitamente en el texto
+                # en vez de reportar False (parece alucinacion) o True (parece
+                # que se valido, que es el bug que se esta corrigiendo aca).
+                is_grounded = False
+                score = 0.0
+                reasoning = f"No se pudo auditar la respuesta: {eval_res.get('reasoning', '')}"
+            else:
+                is_grounded = eval_res["status"] == "PASS"
+                score = eval_res["groundedness_score"]
+                reasoning = eval_res.get("reasoning", "No se detectaron inconsistencias.")
+
+            if grading_res is None:
+                # get_grading fallo (API o parseo). Se deja en cero y trazable,
+                # en vez de reusar el default 5/5/5 que afirmaria una calidad
+                # que nunca se midio.
+                grading = {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0.0}
+                telemetry["steps"].append("6b. Grading: no disponible")
+            else:
+                grading = grading_res
             d5 = time.perf_counter() - s5
             telemetry["durations"]["evaluation"] = f"{d5:.2f}s"
             telemetry["steps"].append(f"6. Audit: {t3+t6} tokens | {d5:.2f}s")
