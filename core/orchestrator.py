@@ -92,9 +92,15 @@ class RAGOrchestrator:
             if eval_res["status"] != "PASS":
                 answer, t4 = await self.repair_manager.repair_answer(answer, context)
                 is_repaired = True
-                eval_res, t5 = await self.evaluator.check_groundedness(answer, context)
-                telemetry["total_tokens"] += t4 + t5
-            
+                # La respuesta cambio, asi que hay que auditarla Y calificarla de
+                # nuevo. El grading que corrio en paralelo describe el texto
+                # anterior, que el usuario ya no va a ver.
+                (eval_res, t5), (grading_res, t7) = await asyncio.gather(
+                    self.evaluator.check_groundedness(answer, context),
+                    self.evaluator.get_grading(query, answer)
+                )
+                telemetry["total_tokens"] += t4 + t5 + t7
+
             is_grounded = eval_res["status"] == "PASS"
             score = eval_res["groundedness_score"]
             reasoning = eval_res.get("reasoning", "No se detectaron inconsistencias.")
