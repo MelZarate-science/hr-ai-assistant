@@ -1,0 +1,108 @@
+[
+  {
+    "id": "I01",
+    "categoria": "incontestable",
+    "pregunta": "¿Cuántos días de vacaciones me quedan disponibles este año?",
+    "answer": "Los días de vacaciones a los que tienes derecho se calculan según tu antigüedad alcanzada al 31 de diciembre de cada año:\n\n*   **Antigüedad de 1 a 5 años**: 14 días corridos de licencia.\n*   **Antigüedad de 5 a 10 años**: 21 días corridos de licencia.\n*   **Antigüedad mayor a 10 años**: 28 días corridos de licencia.\n\nEn caso de haber reingresado a la empresa, se computará el tiempo de servicio anterior para el cálculo de los días de vacaciones, siempre que no hayan transcurrido más de 2 años desde tu desvinculación anterior.\n\nPara poder indicarte la cantidad exacta de días de vacaciones que te corresponden, necesitaría conocer tu antigüedad en la empresa. La información disponible no especifica cómo consultar los días de vacaciones \"restantes\" o ya utilizados.\n\nFuente: HR_Knowledge[1]",
+    "status_esperado": "refused",
+    "status_real": "answered",
+    "status_ok": false,
+    "fuentes_esperadas": [],
+    "fuentes_obtenidas": [
+      "POLITICA_VACACIONES_V2.pdf"
+    ],
+    "source_recall": null,
+    "hechos_clave": [],
+    "hechos_encontrados": [],
+    "hechos_recall": null,
+    "is_grounded": true,
+    "groundedness_score": 1.0,
+    "is_repaired": false,
+    "grading": {
+      "relevance": 3,
+      "clarity": 5,
+      "usefulness": 3,
+      "total_score": 3.67
+    },
+    "tokens": 4438,
+    "duration_s": 28.86
+  },
+  {
+    "id": "I03",
+    "categoria": "incontestable",
+    "pregunta": "¿Cuál es la política de home office o trabajo remoto?",
+    "answer": "No se encuentra información disponible en los documentos oficiales.",
+    "status_esperado": "refused",
+    "status_real": "refused",
+    "status_ok": true,
+    "fuentes_esperadas": [],
+    "fuentes_obtenidas": [],
+    "source_recall": null,
+    "hechos_clave": [],
+    "hechos_encontrados": [],
+    "hechos_recall": null,
+    "is_grounded": true,
+    "groundedness_score": 1.0,
+    "is_repaired": false,
+    "grading": {
+      "relevance": 4,
+      "clarity": 5,
+      "usefulness": 4,
+      "total_score": 4.33
+    },
+    "tokens": 4596,
+    "duration_s": 12.39
+  },
+  {
+    "id": "I04",
+    "categoria": "incontestable",
+    "pregunta": "¿Cuántos días de licencia me dan por enfermedad propia?",
+    "answer": "No se encuentra información disponible en los documentos oficiales.",
+    "status_esperado": "refused",
+    "status_real": "refused",
+    "status_ok": true,
+    "fuentes_esperadas": [],
+    "fuentes_obtenidas": [],
+    "source_recall": null,
+    "hechos_clave": [],
+    "hechos_encontrados": [],
+    "hechos_recall": null,
+    "is_grounded": true,
+    "groundedness_score": 1.0,
+    "is_repaired": false,
+    "grading": {
+      "relevance": 3,
+      "clarity": 5,
+      "usefulness": 2,
+      "total_score": 3.33
+    },
+    "tokens": 4339,
+    "duration_s": 16.74
+  },
+  {
+    "id": "I05",
+    "categoria": "incontestable",
+    "pregunta": "¿La empresa tiene convenio con guarderías o jardín maternal?",
+    "answer": "No se encuentra información disponible en los documentos oficiales.",
+    "status_esperado": "refused",
+    "status_real": "refused",
+    "status_ok": true,
+    "fuentes_esperadas": [],
+    "fuentes_obtenidas": [],
+    "source_recall": null,
+    "hechos_clave": [],
+    "hechos_encontrados": [],
+    "hechos_recall": null,
+    "is_grounded": true,
+    "groundedness_score": 1.0,
+    "is_repaired": false,
+    "grading": {
+      "relevance": 4,
+      "clarity": 5,
+      "usefulness": 3,
+      "total_score": 4.0
+    },
+    "tokens": 3822,
+    "duration_s": 15.76
+  }
+]
