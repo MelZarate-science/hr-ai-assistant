@@ -90,7 +90,9 @@ def setup_database():
         conn = psycopg2.connect(settings.DATABASE_URL)
         cur = conn.cursor()
         cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-        cur.execute("DROP TABLE IF EXISTS interactions;")
+        # `interactions` es el log operativo de produccion (ver core/database.py
+        # log_interaction): la ingesta de contenido re-crea `documents` en cada
+        # corrida, pero nunca debe borrar el historial de interacciones reales.
         cur.execute("DROP TABLE IF EXISTS documents;")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS interactions (

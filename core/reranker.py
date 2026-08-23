@@ -7,7 +7,13 @@ class HRReranker:
     def __init__(self):
         self.llm = LLMManager()
 
-    async def rerank(self, query: str, chunks: list, top_n: int = 5) -> tuple[list, int]:
+    async def rerank(self, query: str, chunks: list, top_n: int = 5) -> tuple[list[int], int]:
+        """Devuelve los INDICES seleccionados de `chunks` (no el texto).
+
+        Devolver indices en vez de texto evita que el caller tenga que
+        re-derivar a que posicion original pertenece cada fragmento buscandolo
+        por igualdad de contenido (fragil si dos chunks tienen texto identico).
+        """
         if not chunks: return [], 0
         
         numbered_chunks = ""
@@ -15,8 +21,8 @@ class HRReranker:
             # Proporcionamos suficiente contexto para que el reranker decida
             numbered_chunks += f"ID:{i} | {chunk[:600]}\n"
 
-        prompt = f"""Instrucción: Actúa como un experto en clasificación de documentos de RRHH. 
-Tu tarea es analizar la 'Pregunta' y los 'Fragmentos' para seleccionar los más relevantes.
+        prompt = f"""Instrucción: Actúa como un experto en clasificación de documentos de RRHH.
+Tu tarea es analizar la 'Pregunta' y los 'Fragmentos' para seleccionar los que la contestan específicamente.
 
 Pregunta: {query}
 
@@ -24,10 +30,12 @@ Fragmentos:
 {numbered_chunks}
 
 REGLAS:
-1. Responde ÚNICAMENTE un JSON con los IDs de los fragmentos que contienen información útil, ordenados por relevancia.
-2. Formato: {{"ids": [0, 1, 2]}}
-3. Devuelve solo los números de ID como enteros.
-4. No des ninguna explicación.
+1. Un fragmento califica solo si responde específicamente lo que se pregunta. Que hable del mismo tema general (ej: "beneficios") sin contestar el dato puntual pedido NO alcanza.
+2. Si ningún fragmento contesta específicamente la pregunta, respondé {{"ids": []}}. Es preferible una lista vacía a incluir fragmentos que no contestan lo pedido.
+3. Responde ÚNICAMENTE un JSON con los IDs de los fragmentos que sí califican, ordenados por relevancia.
+4. Formato: {{"ids": [0, 1, 2]}}
+5. Devuelve solo los números de ID como enteros.
+6. No des ninguna explicación.
 
 Respuesta en JSON:"""
 
@@ -36,7 +44,7 @@ Respuesta en JSON:"""
             res, tokens = await self.llm.call(prompt, temperature=0, use_pro=False)
         except LLMError as e:
             print(f"⚠️ Reranking no disponible: {e}. Fallback a los primeros fragmentos.")
-            return chunks[:top_n], 0
+            return list(range(min(top_n, len(chunks)))), 0
 
         try:
             
@@ -71,10 +79,10 @@ Respuesta en JSON:"""
             
             # Tomamos los mejores hasta el límite top_n
             selected_ids = valid_ids[:top_n]
-            return [chunks[i] for i in selected_ids], tokens
-            
+            return selected_ids, tokens
+
         except Exception as e:
             print(f"⚠️ Reranking Error: {e}. Fallback a los primeros fragmentos.")
-            return chunks[:top_n], 0
+            return list(range(min(top_n, len(chunks)))), 0
 
 reranker = HRReranker()

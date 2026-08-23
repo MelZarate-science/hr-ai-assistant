@@ -78,6 +78,33 @@ class DatabaseManager:
         if DatabaseManager._pool:
             DatabaseManager._pool.putconn(conn)
 
+    def log_interaction(self, query: str, rewritten_query: str, answer: str,
+                         is_grounded: bool, groundedness_score: float, sources: list):
+        """Persiste la interaccion para trazabilidad de produccion.
+
+        Best-effort: un fallo al loguear nunca debe romper la respuesta que ya
+        se le esta dando al usuario, por eso atrapa cualquier excepcion aca
+        mismo en vez de dejarla propagarse al orquestador.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO interactions
+                        (query, rewritten_query, answer, is_grounded, groundedness_score, sources)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (query, rewritten_query, answer, is_grounded, groundedness_score, sources)
+                )
+            conn.commit()
+        except Exception as e:
+            print(f"⚠️ No se pudo loguear la interaccion: {e}")
+        finally:
+            if conn:
+                self.release_connection(conn)
+
     def close_all(self):
         """Cierre limpio de todas las conexiones."""
         if DatabaseManager._pool:

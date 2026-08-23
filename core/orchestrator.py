@@ -5,6 +5,7 @@ from core.guardrails import GuardrailManager
 from core.retriever import retriever
 from core.reranker import reranker
 from core.repair import RepairManager
+from core.database import db_manager
 from evaluation.eval_runner import EvalRunner
 from config.settings import settings
 
@@ -42,7 +43,9 @@ class RAGOrchestrator:
             telemetry["steps"].append(f"2. Guardrail: {t1} tokens | {d1:.2f}s")
             telemetry["total_tokens"] += t1
             if not is_safe:
-                return "Fuera de ámbito.", [], False, 0.0, False, \
+                blocked_answer = "Fuera de ámbito."
+                db_manager.log_interaction(query, rewritten_query, blocked_answer, False, 0.0, [])
+                return blocked_answer, [], False, 0.0, False, \
                        {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0}, telemetry, "Consulta bloqueada por política de seguridad."
 
         # 3. Vector Retrieval (Subimos a 40 para máxima cobertura)
@@ -54,26 +57,43 @@ class RAGOrchestrator:
 
         # 4. Neural Reranking (Optimizado a Top-10 para balance velocidad/precisión)
         s3 = time.perf_counter()
-        best_chunks, t_rerank = await reranker.rerank(rewritten_query, raw_chunks, top_n=10)
+        best_ids, t_rerank = await reranker.rerank(rewritten_query, raw_chunks, top_n=10)
+        # Se indexa por posicion, no por igualdad de texto: si dos chunks
+        # tuvieran contenido identico, buscar la fuente por .index() sobre el
+        # texto atribuia siempre la primera coincidencia, no necesariamente la
+        # correcta.
+        best_chunks = [raw_chunks[i] for i in best_ids]
+        best_sources = [all_sources[i] for i in best_ids]
         d3 = time.perf_counter() - s3
         telemetry["durations"]["reranking"] = f"{d3:.2f}s"
         telemetry["steps"].append(f"4. Reranking: {t_rerank} tokens | {d3:.2f}s")
         telemetry["total_tokens"] += t_rerank
 
-        # TOON Serialization (Fidelidad absoluta al formato tabular)
-        context = f"HR_Knowledge[{len(best_chunks)}]{{source,content}}:\n"
-        for chunk in best_chunks:
+        # TOON Serialization (Fidelidad absoluta al formato tabular), con tope
+        # de caracteres para no desbordar la ventana de contexto si top_n o
+        # CHUNK_SIZE crecen mas adelante.
+        rows = []
+        used_sources = []
+        current_chars = 0
+        for chunk, source in zip(best_chunks, best_sources):
             clean_chunk = chunk.replace("\n", " ").strip()
             if "]\n" in chunk:
                 parts = chunk.split("]\n", 1)
                 source_name = parts[0].replace("[CONTEXTO: ", "").split(">")[0].strip()
                 # Resolvemos el reemplazo de saltos de línea fuera de la f-string para evitar SyntaxError
                 content_part = parts[1].replace("\n", " ").strip()
-                context += f"{source_name}|{content_part}\n---\n"
+                row = f"{source_name}|{content_part}\n---\n"
             else:
-                context += f"Doc|{clean_chunk}\n---\n"
-        
-        sources = list(set([str(all_sources[raw_chunks.index(c)]) for c in best_chunks if c in raw_chunks]))
+                row = f"Doc|{clean_chunk}\n---\n"
+
+            if current_chars + len(row) > settings.MAX_CONTEXT_CHARS:
+                break
+            rows.append(row)
+            used_sources.append(source)
+            current_chars += len(row)
+
+        context = f"HR_Knowledge[{len(rows)}]{{source,content}}:\n" + "".join(rows)
+        sources = list(dict.fromkeys(used_sources))
 
         # 5. Answer Generation
         s4 = time.perf_counter()
@@ -86,8 +106,10 @@ class RAGOrchestrator:
             print(f"❌ Generacion no disponible: {e}")
             telemetry["steps"].append(f"5. Generation: ERROR ({e})")
             telemetry["total_time"] = f"{time.perf_counter() - overall_start:.2f}s"
+            unavailable_answer = "El asistente no está disponible en este momento. Por favor, intentá de nuevo en unos minutos."
+            db_manager.log_interaction(query, rewritten_query, unavailable_answer, False, 0.0, [])
             return (
-                "El asistente no está disponible en este momento. Por favor, intentá de nuevo en unos minutos.",
+                unavailable_answer,
                 [], False, 0.0, False,
                 {"relevance": 0, "clarity": 0, "usefulness": 0, "total_score": 0},
                 telemetry,
@@ -170,7 +192,9 @@ class RAGOrchestrator:
         print(f"💰 TOTAL ESTIMATED TOKENS: {telemetry['total_tokens']}")
         print(f"⏱️ TOTAL TIME: {telemetry['total_time']}")
         print(f"-------------------------------------\n")
-        
+
+        db_manager.log_interaction(query, rewritten_query, answer, is_grounded, score, sources)
+
         return answer, sources, is_grounded, score, is_repaired, grading, telemetry, reasoning
 
 orchestrator = RAGOrchestrator()
