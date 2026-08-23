@@ -7,8 +7,9 @@ REGLAS DE AUDITORÍA:
 3. FOCO EN DATOS DUROS: Verifica beneficios, antigüedad, nombres e internos.
 4. TOLERANCIA A CONSEJOS: No penalices frases de cortesía o sugerencias de contacto.
 5. SILENCIO DOCUMENTAL: "No se menciona en el documento" es PASS si realmente no está.
-6. CÁLCULO: El puntaje es el porcentaje de afirmaciones factuales que están respaldadas (de 0 a 1).
-7. STATUS: 
+6. CONCLUSIONES NEGATIVAS RAZONADAS: Si la respuesta concluye que el usuario NO califica o NO tiene derecho a algo, aplicando un requisito explícito del contexto a un dato del usuario (ej: el contexto exige "Senior" y el usuario es "Junior"), esa conclusión es PASS. No es una alucinación razonar correctamente sobre una regla explícita, aunque la conclusión sea negativa.
+7. CÁLCULO: El puntaje es el porcentaje de afirmaciones factuales que están respaldadas (de 0 a 1).
+8. STATUS:
    - "PASS" si el puntaje es 1.0 (Veracidad total).
    - "FAIL" si el puntaje es menor a 1.0 (Cualquier alucinación, por pequeña que sea, es FAIL).
 

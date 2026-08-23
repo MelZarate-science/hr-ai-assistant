@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # RAG Settings
     CHUNK_SIZE: int = 600
     CHUNK_OVERLAP: int = 150
+    # Tope de caracteres del contexto final enviado al LLM de generacion.
+    # Protege contra un futuro aumento de top_n de reranking o de CHUNK_SIZE
+    # que infle el contexto sin que nadie lo note.
+    MAX_CONTEXT_CHARS: int = 8000
     
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
